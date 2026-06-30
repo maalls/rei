@@ -10,7 +10,13 @@ def main() -> None:
     )
 
     llm_service = LLMService(client=client, model=settings.llm_model, system_prompt=settings.system_prompt, history_file=settings.llm_history_file)
-    bot = TelegramBot(llm_service, token=settings.telegram_token, bot_username=settings.telegram_bot_username, admin_chat_id=settings.telegram_admin_chat_id)
+    bot = TelegramBot(
+        llm_service, 
+        token=settings.telegram_token, 
+        bot_username=settings.telegram_bot_username, 
+        admin_chat_id=settings.telegram_admin_chat_id,
+        admin_question_file=settings.admin_question_file
+    )
     bot.run()
 
 

@@ -8,22 +8,31 @@ from telegram.ext import (
 )
 from src.llm.service import LLMService
 import json
+import os
 
 class TelegramBot:
-    def __init__(self, llm_service: LLMService, token:str, bot_username: str, admin_chat_id: str | None = None):       
+    def __init__(
+            self, 
+            llm_service: LLMService, 
+            token:str, 
+            bot_username: str, 
+            admin_chat_id: str | None = None,
+            admin_question_file: str | None = None
+        ) -> None:       
         self.llm_service = llm_service
         self.token = token
         self.bot_username = bot_username
         self.admin_chat_id = admin_chat_id
+        self.admin_question_file = admin_question_file
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        await update.message.reply_text("Hello! I'm your bot. How can I assist you today?")
-
-    async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        await update.message.reply_text("Send me a message and I will answer using the configured LLM.")
+        await update.message.reply_text("Hello!")
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not update.message or not update.message.text:
+            return
+        
+        if await self.handle_admin_reply(update, context):
             return
         
         print(f"Received message: {update.message.text} from user: {update.message.from_user.username}")
@@ -47,14 +56,7 @@ class TelegramBot:
         if message.tool_calls:
             print(f"Tool calls received: {message.tool_calls}")
             for tool_call in message.tool_calls:
-                if tool_call.function.name == "ask_human":
-                    print("tool", json.dumps(tool_call.model_dump(), indent=2))
-                    arguments = json.loads(tool_call.function.arguments)
-                    question = arguments.get("question", "")
-                    print(f"Tool call: ask_human\nQuestion: {question}")
-                    await self.notify_admin(update, context, question)
-                    
-                elif tool_call.function.name == "aiaiai":
+                if tool_call.function.name == "aiaiai":
                     print("Tool call: aiaiai")
                     await update.message.reply_text("Ai Ai Ai!")
 
@@ -70,17 +72,72 @@ class TelegramBot:
 
     async def notify_admin(self, update: Update, context: ContextTypes.DEFAULT_TYPE, question: str) -> None:
         if self.admin_chat_id:
-            await context.bot.send_message(
+            admin_message = await context.bot.send_message(
                 chat_id=self.admin_chat_id,
                 text=f"❓ Question pour Malo :\n\n{question}",
             )
             await update.message.reply_text(
                             "Je ne suis pas sûr de la réponse. J’ai transmis ta question à Malo."
                         )
+            
+            pending_question = {
+                "admin_message_id": admin_message.message_id,
+                "question": question,
+                "user": update.message.from_user.username,
+                "chat_id": update.effective_chat.id,
+                "user_message_id": update.message.message_id,
+            }
+            if self.admin_question_file:
+                if not os.path.exists(self.admin_question_file):
+                    open(self.admin_question_file, "w").close()
+                try:
+                    with open(self.admin_question_file, "a") as f:
+                        f.write(json.dumps(pending_question) + "\n")
+                except Exception as e:
+                    print(f"Failed to write pending question to file: {e}")
         else:
             await update.message.reply_text(
                             "Je ne suis pas sûr de la réponse. Mais je n’ai pas pu contacter Malo."
             )
+
+    async def handle_admin_reply(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+        if not self.admin_chat_id or not self.admin_question_file:
+            return False
+
+        if update.effective_chat.id != int(self.admin_chat_id):
+            return False
+
+        if not update.message or not update.message.reply_to_message:
+            return False
+
+        replied_message_id = update.message.reply_to_message.message_id
+        try:
+            with open(self.admin_question_file, "r") as f:
+                pending_questions = [json.loads(line) for line in f]
+        except FileNotFoundError:
+            print("Admin question file not found.")
+            return False
+
+        for pending_question in pending_questions:
+            if pending_question["admin_message_id"] == replied_message_id:
+                user_chat_id = pending_question["chat_id"]
+                user_message_id = pending_question["user_message_id"]
+                answer = update.message.text
+
+                await context.bot.send_message(
+                    chat_id=user_chat_id,
+                    text=f"Réponse de Malo :\n\n{answer}",
+                    reply_to_message_id=user_message_id,
+                )
+
+                # Remove the answered question from the file
+                pending_questions.remove(pending_question)
+                with open(self.admin_question_file, "w") as f:
+                    for question in pending_questions:
+                        f.write(json.dumps(question) + "\n")
+                return True
+
+        return False
        
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -93,9 +150,9 @@ class TelegramBot:
                 print(f"Failed to send error message to user: {e}")
 
     def run(self) -> None:
+        print("Starting bot")
         application = ApplicationBuilder().token(self.token).build()
         application.add_handler(CommandHandler("start", self.start_command))
-        application.add_handler(CommandHandler("help", self.help_command))
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         application.add_error_handler(self.error_handler)
 

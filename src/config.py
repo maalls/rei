@@ -39,6 +39,7 @@ class Settings:
     
     system_prompt: str
     llm_history_file: str | None = None
+    admin_question_file: str | None = None
 
 
 settings = Settings(
@@ -50,4 +51,5 @@ settings = Settings(
     llm_model=os.environ["LLM_MODEL"],
     system_prompt=load_system_prompt(),
     llm_history_file=os.getenv("LLM_HISTORY_FILE"),
+    admin_question_file=os.getenv("ADMIN_QUESTION_FILE"),
 )
