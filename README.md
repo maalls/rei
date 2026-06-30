@@ -2,7 +2,7 @@
 
 Rei aim to be a personal assistant agentic framework to act on your behalf in a telegram group chat.
 
-At the current stage, it's behave like an LLM agent where you can feed information about yourself using the system prompt.
+At the current stage, it's behave like an LLM agent where you can include information about yourself in the system prompt.
 If it can't reply based on these informations, it's asking you the question in a private channel and transmit back your reply to the user.
 
 ## Installation
