@@ -2,4 +2,4 @@
 .venv
 var/
 __pycache__
-prompts/system.default.md
+prompts/system.md
