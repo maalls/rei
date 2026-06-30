@@ -38,7 +38,7 @@ class Settings:
     llm_model: str
     
     system_prompt: str
-    llm_history_file: str | None = None
+    llm_history_dir: str | None = None
     admin_question_file: str | None = None
 
 
@@ -50,6 +50,6 @@ settings = Settings(
     llm_base_url=normalize_base_url(os.getenv("LLM_BASE_URL")),
     llm_model=os.environ["LLM_MODEL"],
     system_prompt=load_system_prompt(),
-    llm_history_file=os.getenv("LLM_HISTORY_FILE"),
-    admin_question_file=os.getenv("ADMIN_QUESTION_FILE"),
+    llm_history_dir=os.getenv("LLM_HISTORY_DIR") or "var/llm_history",
+    admin_question_file=os.getenv("ADMIN_QUESTION_FILE") or "var/admin_questions.json",
 )

@@ -8,30 +8,23 @@ class LLMService:
         self,
         client: OpenAI,
         model: str,
-        history: ConversationHistory,
         tools: list[dict] | None = None
 
     ):
         self.client = client
         self.model = model
-        self.history = history
         self.tools = tools
 
-    def chat(self, user_message: str):
-
-        self.history.add_user(user_message)
+    def chat(self, user_messages: list[dict]) -> dict | None:
                 
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=self.history.get_messages(),
+                messages=user_messages,
                 tools=self.tools,
             )
 
             message = response.choices[0].message
-            if message and message.content and message.content != "IDK":
-                self.history.add_assistant(message.content)
-                self.history.save()
 
             return message
 

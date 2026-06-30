@@ -6,23 +6,28 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
+from src.llm.history_factory import HistoryFactory
 from src.llm.service import LLMService
 import json
 import os
 
-class TelegramBot:
+
+class GroupBot:
     def __init__(
             self, 
             llm_service: LLMService, 
             token:str, 
             bot_username: str, 
+            history_factory: HistoryFactory,
             admin_chat_id: str | None = None,
-            admin_question_file: str | None = None
+            admin_question_file: str | None = None,
+            
         ) -> None:       
         self.llm_service = llm_service
         self.token = token
         self.bot_username = bot_username
         self.admin_chat_id = admin_chat_id
+        self.history_factory = history_factory
         self.admin_question_file = admin_question_file
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -51,15 +56,16 @@ class TelegramBot:
 
             user_message = user_message.replace(mention, "").strip()
 
-        message = self.llm_service.chat(user_message)
+        history = self.history_factory.for_channel(update.effective_chat.id)
+        history.add_user(user_message)
+        message = self.llm_service.chat(history.get_messages())
 
         if message.tool_calls:
             print(f"Tool calls received: {message.tool_calls}")
             for tool_call in message.tool_calls:
                 if tool_call.function.name == "aiaiai":
                     print("Tool call: aiaiai")
-                    self.llm_service.history.add_assistant("Ai Ai Ai!")
-                    self.llm_service.history.save()
+                    history.add_assistant("Ai Ai Ai!")
                     await update.message.reply_text("Ai Ai Ai!")
 
         if message.content:
@@ -68,6 +74,7 @@ class TelegramBot:
                 await self.notify_admin(update, context, user_message)
             else:
                 print(f"Sending response: {message.content}")
+                history.add_assistant(message.content)
                 await update.message.reply_text(message.content)
 
 
@@ -105,7 +112,7 @@ class TelegramBot:
                     print(f"Failed to write pending question to file: {e}")
         else:
             await update.message.reply_text(
-                            "Je ne suis pas sûr de la réponse. Mais je n’ai pas pu contacter Malo."
+                            "Je ne suis pas sûr de la réponse. Et je n’ai pas pu contacter."
             )
 
     async def handle_admin_reply(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
@@ -130,15 +137,31 @@ class TelegramBot:
             if pending_question["admin_message_id"] == replied_message_id:
                 user_chat_id = pending_question["chat_id"]
                 user_message_id = pending_question["user_message_id"]
+
+                
                 answer = update.message.text
+
+                message = {"role": "user", "content": f"""
+A user asked a question and the admin provided an answer. Here is the context:
+Question: {pending_question["question"]}
+Admin's Answer: {answer}
+Please provide a concise summary based on the admin's answer to send back to the user. Reply in the same language as the original question. 
+"""     
+                }
+
+                print(message)
+
+                message = self.llm_service.chat([message])
+
+                history = self.history_factory.for_channel(user_chat_id)
+                history.add_assistant(message.content)
 
                 await context.bot.send_message(
                     chat_id=user_chat_id,
-                    text=f"Réponse de Malo :\n\n{answer}",
+                    text=f"{message.content}",
                     reply_to_message_id=user_message_id,
                 )
 
-                # Remove the answered question from the file
                 pending_questions.remove(pending_question)
                 with open(self.admin_question_file, "w") as f:
                     for question in pending_questions:
@@ -153,7 +176,7 @@ class TelegramBot:
         # send a message to the user if possible
         if update and isinstance(update, Update) and update.message:
             try:
-                await update.message.reply_text("An error occurred while processing your request. Please try again later.")
+                await update.message.reply_text(f"An error occurred while processing your request. Please try again later. ({context.error})")
             except Exception as e:
                 print(f"Failed to send error message to user: {e}")
 
