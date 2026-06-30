@@ -1,7 +1,9 @@
 # rei
 
-Rei aim to be a personal assistant framework to act on your behalf in a telegram group chat.
-If it can't reply, it will ask you what to do in a private channel in order to pursue.
+Rei aim to be a personal assistant agentic framework to act on your behalf in a telegram group chat.
+
+At the current stage, it's behave like an LLM agent where you can feed information about yourself using the system prompt.
+If it can't reply based on these informations, it's asking you the question in a private channel and transmit back your reply to the user.
 
 ## Installation
 
