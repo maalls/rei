@@ -12,15 +12,32 @@ from src.llm.service import LLMService
 class AdminReplyHandler:
     def __init__(
         self,
-        admin_chat_id: str | None,
+        admin_password: str,
         admin_question_file: str,
         llm_service: LLMService,
         history_factory: HistoryFactory,
     ) -> None:
-        self.admin_chat_id = admin_chat_id
+        self.admin_password = admin_password
+        self.init_admin_chat_id()
         self.admin_question_file = admin_question_file
         self.llm_service = llm_service
         self.history_factory = history_factory
+
+    def init_admin_chat_id(self) -> None:
+        id_file_path = "var/admin_chat_id.txt"
+        if os.path.exists(id_file_path):
+            with open(id_file_path, "r") as f:
+                self.admin_chat_id = int(f.read().strip())
+        else:
+            self.admin_chat_id = None
+
+    def store_admin_chat_id(self, chat_id: int) -> None:
+        # store the admin chat ID in a file for persistence
+        id_file_path = "var/admin_chat_id.txt"
+        os.makedirs(os.path.dirname(id_file_path), exist_ok=True)
+        with open(id_file_path, "w") as f:
+            f.write(str(chat_id))
+        self.admin_chat_id = chat_id
 
     async def notify_admin(
         self,

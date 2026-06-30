@@ -33,6 +33,15 @@ class GroupBot:
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Hello!")
 
+    async def claim_admin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        
+        password = context.args[0] if context.args else None
+        if password == self.admin_reply_handler.admin_password:
+            self.admin_reply_handler.store_admin_chat_id(update.effective_chat.id)
+            await update.message.reply_text("Chat admin set.")
+        else:
+            await update.message.reply_text("Incorrect password.")
+
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not update.message or not update.message.text:
             return
@@ -91,6 +100,7 @@ class GroupBot:
         print("Starting bot")
         application = ApplicationBuilder().token(self.token).build()
         application.add_handler(CommandHandler("start", self.start_command))
+        application.add_handler(CommandHandler("claim_admin", self.claim_admin_command))
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         application.add_error_handler(self.error_handler)
         print("Polling...")

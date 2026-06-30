@@ -23,7 +23,7 @@ def main() -> None:
         tools=get_tools())
     
     admin_reply_handler = AdminReplyHandler(
-        admin_chat_id=settings.telegram_admin_chat_id,
+        admin_password=settings.telegram_admin_password,
         admin_question_file=settings.admin_question_file,
         llm_service=llm_service,
         history_factory=history_factory,

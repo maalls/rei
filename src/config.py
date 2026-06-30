@@ -32,7 +32,7 @@ def load_system_prompt() -> str:
 class Settings:
     telegram_token: str
     telegram_bot_username: str
-    telegram_admin_chat_id: str
+    telegram_admin_password: str
     llm_api_key: str
     llm_base_url: str
     llm_model: str
@@ -45,7 +45,7 @@ class Settings:
 settings = Settings(
     telegram_token=os.environ["TELEGRAM_TOKEN"],
     telegram_bot_username=os.environ["TELEGRAM_BOT_USERNAME"],
-    telegram_admin_chat_id=os.getenv("TELEGRAM_ADMIN_CHAT_ID") or None,
+    telegram_admin_password=os.environ["TELEGRAM_ADMIN_PASSWORD"],
     llm_api_key=os.getenv("LLM_API_KEY", "dummy_key") or "dummy_key",
     llm_base_url=normalize_base_url(os.getenv("LLM_BASE_URL")),
     llm_model=os.environ["LLM_MODEL"],
