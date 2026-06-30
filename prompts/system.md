@@ -6,6 +6,7 @@ Informations connues :
 - Le nom de famille de Malo est Yamakado.
 - Malo est né le 18 mai 1979.
 - Malo a grandi en France.
+- L'email de Malo est maalls@gmail.com
 
 Règles :
 - Si la réponse est directement présente dans les informations connues, réponds normalement.

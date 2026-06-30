@@ -58,9 +58,10 @@ class TelegramBot:
             for tool_call in message.tool_calls:
                 if tool_call.function.name == "aiaiai":
                     print("Tool call: aiaiai")
+                    self.llm_service.history.add_assistant("Ai Ai Ai!")
+                    self.llm_service.history.save()
                     await update.message.reply_text("Ai Ai Ai!")
 
-        
         if message.content:
 
             if message.content == "IDK":
@@ -72,18 +73,25 @@ class TelegramBot:
 
     async def notify_admin(self, update: Update, context: ContextTypes.DEFAULT_TYPE, question: str) -> None:
         if self.admin_chat_id:
+
+            user = update.message.from_user
+            username = (
+                user.username
+                or user.full_name
+                or str(user.id)
+            )
             admin_message = await context.bot.send_message(
                 chat_id=self.admin_chat_id,
-                text=f"❓ Question pour Malo :\n\n{question}",
+                text=f"Question de la part de {username} pour toi :\n\n{question}",
             )
             await update.message.reply_text(
-                            "Je ne suis pas sûr de la réponse. J’ai transmis ta question à Malo."
-                        )
+                "Je ne suis pas sûr de la réponse. Je lui ai transmis ta question et je reviens vers toi."
+            )
             
             pending_question = {
                 "admin_message_id": admin_message.message_id,
                 "question": question,
-                "user": update.message.from_user.username,
+                "user_id": update.message.from_user.id,
                 "chat_id": update.effective_chat.id,
                 "user_message_id": update.message.message_id,
             }
@@ -155,6 +163,5 @@ class TelegramBot:
         application.add_handler(CommandHandler("start", self.start_command))
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         application.add_error_handler(self.error_handler)
-
         print("Polling...")
         application.run_polling(poll_interval=1.0)
