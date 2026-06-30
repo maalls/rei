@@ -1,7 +1,7 @@
 # rei
 
 Rei is a personal assistant framework to act on your behalf in a telegram group chat.
-If it can't replies, it will ask you what to do in a private channel in order to pursue.
+If it can't reply, it will ask you what to do in a private channel in order to pursue.
 
 ## Installation
 
