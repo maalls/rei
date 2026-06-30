@@ -1,0 +1,1 @@
+watchfiles "python -m src.main" src prompts .env

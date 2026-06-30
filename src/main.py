@@ -2,6 +2,7 @@ from src.config import settings
 from src.llm.tools import get_tools
 from src.llm.history_factory import HistoryFactory
 from src.llm.service import LLMService
+from src.telegram_bot.admin_reply_handler import AdminReplyHandler
 from src.telegram_bot.group_bot import GroupBot
 from openai import OpenAI
 
@@ -21,15 +22,23 @@ def main() -> None:
         model=settings.llm_model, 
         tools=get_tools())
     
+    admin_reply_handler = AdminReplyHandler(
+        admin_chat_id=settings.telegram_admin_chat_id,
+        admin_question_file=settings.admin_question_file,
+        llm_service=llm_service,
+        history_factory=history_factory,
+    )
     bot = GroupBot(
         llm_service, 
         token=settings.telegram_token, 
         bot_username=settings.telegram_bot_username, 
         history_factory=history_factory,
-        admin_chat_id=settings.telegram_admin_chat_id,
-        admin_question_file=settings.admin_question_file
+        admin_reply_handler=admin_reply_handler
     )
-    bot.run()
+    try:
+        bot.run()
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":
