@@ -18,7 +18,15 @@ pip install -r requirements.txt
 
 ```
 
+Copy the prompts/system.default.md into prompts/system.md and fill it with your own profile informations. 
+This is where you store the information about yourself you agree to share.
+
 Copy the .env.example into a .env and insert the parameters.
+
+start the bot
+```
+(venv)$python -m src.main.py
+```
 
 Create or go to your Telegram private chat with your bot, and type:
 ```
@@ -28,7 +36,5 @@ replacing TELEGRAM_ADMIN_PASSWORD as defined in your .env file.
 
 The bot will use this chat to forward you questions.
 
-Copy the prompts/system.default.md into prompts/system.md and fill it with your own profile informations. 
-This is where you store the information about yourself you agree to share.
 
 
