@@ -1,0 +1,53 @@
+from dataclasses import dataclass
+from pathlib import Path
+import os
+
+from dotenv import load_dotenv
+
+
+load_dotenv()
+
+
+def normalize_base_url(raw_base_url: str | None) -> str:
+    if not raw_base_url:
+        raise ValueError("LLM_BASE_URL is not set.")
+
+    base_url = raw_base_url.rstrip("/")
+    if not base_url.endswith("/v1"):
+        base_url = f"{base_url}/v1"
+
+    return base_url
+
+
+def load_system_prompt() -> str:
+    prompt_path = Path("prompts/system.md")
+
+    if not prompt_path.exists():
+        prompt_path = Path("prompts/system.default.md")
+
+    return prompt_path.read_text(encoding="utf-8")
+
+
+@dataclass(frozen=True)
+class Settings:
+    telegram_token: str
+    telegram_bot_username: str
+    telegram_admin_chat_id: str
+    llm_api_key: str
+    llm_base_url: str
+    llm_model: str
+    
+    system_prompt: str
+    llm_history_file: str | None = None
+
+
+settings = Settings(
+    telegram_token=os.environ["TELEGRAM_TOKEN"],
+    telegram_bot_username=os.environ["TELEGRAM_BOT_USERNAME"],
+    telegram_admin_chat_id=os.getenv("TELEGRAM_ADMIN_CHAT_ID") or None,
+    llm_api_key=os.getenv("LLM_API_KEY", "dummy_key") or "dummy_key",
+    llm_base_url=normalize_base_url(os.getenv("LLM_BASE_URL")),
+    llm_model=os.environ["LLM_MODEL"],
+    system_prompt=load_system_prompt(),
+    llm_history_file=os.getenv("LLM_HISTORY_FILE"),
+)
