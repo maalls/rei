@@ -29,10 +29,31 @@ class ConversationHistory:
         self.messages.append({"role": "user", "content": content})
         self.save()
 
-    def add_assistant(self, content: str | None) -> None:
-        if content:
-            self.messages.append({"role": "assistant", "content": content})
+    def add_message(self, message: dict) -> None:
+        self.messages.append(message)
+        self.save()
+
+    def add_assistant_message(self, message) -> None:
+        item = {"role": "assistant", "content": message.content}
+        if message.tool_calls:
+            item["tool_calls"] = [
+                tool_call
+                for tool_call in message.tool_calls
+            ]
+            self.messages.append(item)
             self.save()
+
+    def add_assistant(self, content) -> None:
+        self.messages.append({"role": "assistant", "content": content})
+        self.save()
+    
+    def add_tool(self, tool_call_id: str, content: str) -> None:
+        self.messages.append({
+            "role": "tool",
+            "tool_call_id": tool_call_id,
+            "content": content,
+        })
+        self.save()
 
     def add_system(self, content: str) -> None:
         self.messages.append({"role": "system", "content": content})
@@ -49,3 +70,5 @@ class ConversationHistory:
 
         with self.history_file.open("w", encoding="utf-8") as f:
             json.dump(self.messages, f, indent=2, ensure_ascii=False)
+
+    

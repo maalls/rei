@@ -30,4 +30,4 @@ class LLMService:
 
         except APIError as error:
             print(f"LLM API error: {error}")
-            return None
+            raise error

@@ -47,20 +47,19 @@ class AdminReplyHandler:
     ) -> None:
         if not self.admin_chat_id:
             await update.message.reply_text(
-                "Je ne suis pas sûr de la réponse. Et je n’ai pas pu contacter Malo."
+                "Je ne suis pas sûr de la réponse. Et je n’ai pas pu contacter l'administrateur car le chat admin ID n'est pas défini."
             )
             return
 
         user = update.message.from_user
         username = user.username or user.full_name or str(user.id)
 
+        print("Notifying admin with question:", question)
+        text = f"Question de la part de {username} pour toi :\n\n{question}"
+        self.history_factory.for_channel(self.admin_chat_id).add_assistant(text)
         admin_message = await context.bot.send_message(
             chat_id=self.admin_chat_id,
-            text=f"Question de la part de {username} pour toi :\n\n{question}",
-        )
-
-        await update.message.reply_text(
-            "Je ne suis pas sûr de la réponse. Je lui ai transmis ta question et je reviens vers toi."
+            text=text,
         )
 
         self._append_pending_question(
@@ -89,6 +88,8 @@ class AdminReplyHandler:
                 continue
 
             answer = update.message.text
+            self.history_factory.for_channel(self.admin_chat_id).add_user(answer)
+
             final_answer = self._format_admin_answer(
                 question=pending_question["question"],
                 answer=answer,
@@ -119,11 +120,10 @@ class AdminReplyHandler:
         message = {
             "role": "user",
             "content": (
-                "A user asked you a question to relay to your admin. The admin provided an answer.\n"
+                "Reformulate the answer so it is clear and concise. If it's in the first person, reformulate it to be in the third person.\n"
                 f"Question: {question}\n"
-                f"Admin's answer: {answer}\n\n"
-                "Rewrite the admin's answer as a concise answer to be addressed to the user. "
-                "Reply in the same language as the original question."
+                f"Answer: {answer}\n\n"
+                "You must reformulate the answer in the same language as the original question."
             ),
         }
 

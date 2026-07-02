@@ -5,7 +5,7 @@ import os
 from dotenv import load_dotenv
 
 
-load_dotenv()
+load_dotenv(override=True)
 
 
 def normalize_base_url(raw_base_url: str | None) -> str:
