@@ -79,7 +79,7 @@ class GroupBot:
 
 
             if message.tool_calls:
-                print(f"Tool calls received: {message.tool_calls}")
+                print(f"Tool calls receive!!: {message.tool_calls}")
                 history.add_message(message.model_dump())
                 for tool_call in message.tool_calls:
                     arguments = json.loads(tool_call.function.arguments)
@@ -98,23 +98,30 @@ class GroupBot:
                         print(f"Tool call: calendar_availability for {person} on {date} starting at {start_time} for {duration}")
                         content =  f"Checked calendar availability for {person} on {date} starting at {start_time} for {duration}."
                         
-                    elif tool_call.function.name == "profile":
+                    elif tool_call.function.name == "search_profile":
                         arguments = json.loads(tool_call.function.arguments)
                         print("Tool call: profile", arguments)
                         person = arguments.get("person")
-                        label = arguments.get("label")
-                        details = arguments.get("details")
-                        print(f"Tool call: profile for {person}, {label}: {details}")
+                        
+                        query = arguments.get("query")
+                        print(f"Tool call: profile for {person}, query: {query}")
                         # Here you would implement the logic to get the profile information
                         # For now, we will just send a placeholder response
-                        content = f"Retrieved profile information for {person}: {{}}"
+                        content = json.dumps({
+                            "status": "not_found",
+                            "person": person,
+                            "query": query,
+                            "instruction": (
+                                "The requested profile information was not found. "
+                                "You must call transmit_request now."
+                            )
+                        })
                     
                     elif tool_call.function.name == "transmit_request":
                         await self.admin_reply_handler.notify_admin(update, context, arguments.get("details"))
                         content = {
-                        "status": "sent_to_admin",
-                        "admin_has_replied_status": "pending_for_admin_reply",
-                        "instruction": "the question has been sent to the admin. The admin will reply when they have an answer. The user will be notified later when the admin replies.",
+                        "status": "request_transmitted",
+                        "message": "the request has been transmitted and will be shared as soon as available.",
                     }
                     else:
                         raise ValueError(f"Unknown tool call: {tool_call.function.name}")   

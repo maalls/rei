@@ -22,6 +22,7 @@ class LLMService:
                 model=self.model,
                 messages=user_messages,
                 tools=self.tools,
+                tool_choice="auto"
             )
 
             message = response.choices[0].message

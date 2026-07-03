@@ -123,7 +123,7 @@ class AdminReplyHandler:
                 "Reformulate the answer so it is clear and concise. If it's in the first person, reformulate it to be in the third person.\n"
                 f"Question: {question}\n"
                 f"Answer: {answer}\n\n"
-                "You must reformulate the answer in the same language as the original question."
+                "You must formulate the answer in the same language as the original question. So if the question is in French, the answer must be in French. If the question is in English, the answer must be in English."
             ),
         }
 
