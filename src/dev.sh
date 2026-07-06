@@ -1,1 +1,1 @@
-watchfiles "python -m src.main" src prompts .env
+watchfiles "python -m src.main_langgraph" src prompts .env

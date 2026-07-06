@@ -5,6 +5,9 @@ from src.llm.service import LLMService
 from src.telegram_bot.admin_reply_handler import AdminReplyHandler
 from src.telegram_bot.group_bot import GroupBot
 from openai import OpenAI
+from langchain_openai import ChatOpenAI
+from src.langgraph.app import LangGraphApp
+from src.langgraph.nomic_vector_store import NomicVectorStore
 class Factory:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -18,6 +21,26 @@ class Factory:
             client=client, 
             model=self.settings.llm_model, 
             tools=get_tools()
+        )
+    
+    def create_langgraph_app(self) -> LangGraphApp:
+        llm = self.create_chat_openai()
+        vector_store = self.create_nomic_vector_store()
+        return LangGraphApp(llm=llm, vector_store=vector_store)
+    
+    def create_nomic_vector_store(self) -> NomicVectorStore:
+        return NomicVectorStore(
+            model=self.settings.llm_model,
+            base_url=self.settings.llm_base_url,
+            api_key=self.settings.llm_api_key,
+        )
+
+    def create_chat_openai(self) -> ChatOpenAI:
+        return ChatOpenAI(
+            model_name=self.settings.llm_model,
+            openai_api_key=self.settings.llm_api_key,
+            openai_api_base=self.settings.llm_base_url,
+            temperature=0
         )
     
     def create_history_factory(self) -> HistoryFactory:
@@ -45,6 +68,7 @@ class Factory:
             token=self.settings.telegram_token, 
             bot_username=self.settings.telegram_bot_username, 
             history_factory=history_factory,
-            admin_reply_handler=admin_reply_handler
+            admin_reply_handler=admin_reply_handler,
+            langgraph_app=self.create_langgraph_app()
         )
     

@@ -11,7 +11,7 @@ from src.llm.service import LLMService
 from src.telegram_bot.admin_reply_handler import AdminReplyHandler
 import json
 import os
-
+from src.langgraph.app import LangGraphApp
 
 class GroupBot:
     def __init__(
@@ -21,6 +21,7 @@ class GroupBot:
             bot_username: str, 
             history_factory: HistoryFactory,
             admin_reply_handler: AdminReplyHandler,
+            langgraph_app: LangGraphApp
             
             
         ) -> None:       
@@ -29,6 +30,7 @@ class GroupBot:
         self.bot_username = bot_username
         self.admin_reply_handler = admin_reply_handler
         self.history_factory = history_factory
+        self.langgraph_app = langgraph_app
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Hello!")
@@ -42,7 +44,29 @@ class GroupBot:
         else:
             await update.message.reply_text("Incorrect password.")
 
+
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if not update.message or not update.message.text:
+            return
+        
+        message_type = update.message.chat.type
+        user_message = update.message.text
+        
+        if message_type in ["group", "supergroup"]:
+            mention = f"@{self.bot_username}"
+
+            print(f"Received message: {user_message} from chat type: {message_type}")
+
+            if mention not in user_message:
+                print(f"Bot {self.bot_username} was not mentioned in the group message. Ignoring.")
+                return
+        
+        response = self.langgraph_app.invoke(user_message)
+        await update.message.reply_text(response)
+
+    
+    
+    async def handle_message_old(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not update.message or not update.message.text:
             return
         
