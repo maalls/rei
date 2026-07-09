@@ -13,6 +13,7 @@ class AdminBot():
 
     async def  request_admin(self, from_channel_id: str, text: str):
 
+        print("[request_admin] request_admin", from_channel_id, text)
         chat_id = self.get_admin_chat_id()
 
         message = await self.send_message(chat_id=chat_id, text=text)
@@ -30,7 +31,7 @@ class AdminBot():
         if pending_request:
             chat_id = pending_request["chat_id"]
             text = message.text
-            
+
             message = await self.send_message(chat_id=chat_id, text=text)
             self.remove_pending_request(message["message_id"])
             
@@ -39,20 +40,21 @@ class AdminBot():
         return await self.bot.send_message(chat_id=chat_id, text=text)
 
     def find_pending_request(self, message_id):
-        pass
+        print("[find_pending_request] searching pending request for ", message_id)
+        requests = self.get_storage_content()
+        for request in requests:
+            if request.get("message_id") == message_id:
+                return request
+        
+        return False
+
 
     def remove_pending_request(self, message_id):
         pass
 
     def store_pending_request(self, message_id, from_id):
-        os.makedirs(os.path.dirname(self.pending_request_file), exist_ok=True)
-        if os.path.exists(self.pending_request_file):
-            with open(self.pending_request_file, "r") as f:
-                raw = f.read().strip()
-                content = json.loads(raw) if raw else []
-        else:
-            content = []
-
+        content = self.get_storage_content()
+        
         with open(self.pending_request_file, "w") as f:
             content.append({
                 "message_id": message_id,
@@ -61,6 +63,15 @@ class AdminBot():
             print("writing request to the pending request file")
             f.writelines(json.dumps(content, indent=2))
 
+    def get_storage_content(self):
+        os.makedirs(os.path.dirname(self.pending_request_file), exist_ok=True)
+        if os.path.exists(self.pending_request_file):
+            with open(self.pending_request_file, "r") as f:
+                raw = f.read().strip()
+                content = json.loads(raw) if raw else []
+        else:
+            content = []
+        return content
     
     def get_admin_chat_id(self):
         id_file_path = "var/admin_chat_id.txt"
@@ -68,5 +79,7 @@ class AdminBot():
             chat_id = str(f.readline())
 
         if not chat_id:
-            raise ValueError("chat id is not defined.")
+            raise ValueError("chat id has not be claimed.")
+        
+        return chat_id
         

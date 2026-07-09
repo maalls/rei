@@ -67,7 +67,14 @@ class LangGraphApp:
             print("group_intent", len(state["messages"]))
 
             last = json.loads(state["messages"][-1].content)
-            last_text = last.get("text", "")
+            last_text = last.get("text", "")                
+
+            if(last["chat_type"] == "private"):
+                print("it's a private chat so bot should reply")
+                return {
+                    "should_reply": True,
+                    "reason": "it's a private chat so bot should reply"
+                }
 
             if "@maalls_bot" in last_text.lower():
                 print("@maalls_bot is mentioned in the message")
@@ -81,7 +88,7 @@ class LangGraphApp:
             logs = []
             for message in state["messages"]:
                 message = json.loads(message.content)
-                logs.append(f"{message["from"]["username"]}: {message["text"]}")
+                logs.append(f"from {message["from"]["username"]}: {message["text"]}")
             
             log = "\n".join(logs)
             print("log", log)
@@ -110,8 +117,14 @@ class LangGraphApp:
             return { "should_reply": result.is_addressed_to == "maalls_bot" or result.is_addressed_to == "@maalls_bot", "reason": result.reason }
 
 
-        def classify_intent(state: State):
+        async def classify_intent(state: State):
             print("[classify_intent]", len(state["messages"]))
+
+            request_reply = await is_request_reply(state)
+            if request_reply:
+                messages = format_response(state["messages"], request_reply)
+                return {"message_intent": "request_reply", "messages": messages["messages"]}
+
 
             structured_llm = llm.with_structured_output(IntentClassifier)
 
@@ -153,6 +166,20 @@ class LangGraphApp:
             print("intent:", result)
             return {"message_intent": result.message_intent}
         
+        async def is_request_reply(state: State):
+
+            message = state["messages"][-1]
+            content = json.loads(message.content)
+            if(content.get("reply_to")):
+                pending_request = self.admin_bot.find_pending_request(content["reply_to"]["message_id"])
+                if pending_request:
+                    print("[is_request_reply] pending request found", pending_request["reply_to_channel_id"], content["text"])
+                    await self.admin_bot.send_message(pending_request["reply_to_channel_id"], content["text"])
+                    return Response(content=content["text"])
+                else:
+                    return False
+            else:
+                return False
         def rewrite_knowledge_query(state: State):
             structured_llm = llm.with_structured_output(RewrittenQuery)
 
@@ -236,6 +263,8 @@ class LangGraphApp:
             llm_structured = llm.with_structured_output(HumanRequest)
 
             historic = []
+            content = json.loads(state["messages"][-1].content)
+            chat_id = content["chat_id"]
             for message in state["messages"]:
                 historic.append(to_llm_message(message=message))
 
@@ -263,7 +292,7 @@ class LangGraphApp:
             )
 
             print("[handover_request]  request", request.message)  # "ex: Quel est l' email de Malo?"
-            await self.admin_bot.request_admin(from_channel_id=123, text=request.message)
+            await self.admin_bot.request_admin(from_channel_id=chat_id, text=request.message)
             response = Response(content= f"La demande {request.message} a été transmise")
             return format_response(state["messages"], response)
 
@@ -372,7 +401,8 @@ class LangGraphApp:
             "chat": "chat_agent",
             "knowledge": "rag_query",
             "coding": "code_agent",
-            "handover_request": "handover_request"
+            "handover_request": "handover_request",
+            "request_reply": END
         })
         graph.add_edge("chat_agent", END)
         graph.add_edge("rag_query", "rag_agent")

@@ -20,27 +20,37 @@ async def test_admin_answer_formatting():
 
     message = {
         "chat_id": 123,
+        "message_id": 234,
+        "chat_type": "group",
         "text": "@maalls_bot quel est l'age de Malo",
         "from": {
             "username": "@maalls"
         }
     }
     result = await app.invoke(message)
-    assert result == "Je n'ai pas trouvé les informations, voulez-vous que je transmette la requête à la personne ?"
+    assert result == "Je n'ai pas trouvé d'informations à ce sujet. Voulez-vous que je transmette cette requête à la personne ?"
     message["text"] = "oui"
 
     result = await app.invoke(message)
 
-    print(result)
+    print("result2: ", result)
 
     admin_chat_id = app.admin_bot.get_admin_chat_id()
     message = {
         "chat_id": admin_chat_id,
+        "chat_type": "private",
         "text": "47 ans",
         "reply_to": {
             "message_id": 456
+        },
+        "from": {
+            "username": "@maalls"
         }
     }
+
+    result = await app.invoke(message)
+
+    print("result3:", result)
 
 
 
