@@ -50,18 +50,19 @@ class AdminBot():
 
 
     def remove_pending_request(self, message_id):
-        pass
+        requests = self.get_storage_content()
+        requests = [item for item in requests if item["message_id"] != message_id]
+        self.store_pending_requests(requests)
+
+
 
     def store_pending_request(self, message_id, from_id):
         content = self.get_storage_content()
-        
-        with open(self.pending_request_file, "w") as f:
-            content.append({
+        content.append({
                 "message_id": message_id,
                 "reply_to_channel_id": from_id
             })
-            print("writing request to the pending request file")
-            f.writelines(json.dumps(content, indent=2))
+        self.store_pending_requests(content)
 
     def get_storage_content(self):
         os.makedirs(os.path.dirname(self.pending_request_file), exist_ok=True)
@@ -72,6 +73,11 @@ class AdminBot():
         else:
             content = []
         return content
+    
+    def store_pending_requests(self, requests: dict):
+        with open(self.pending_request_file, "w") as f:
+            print("writing request to the pending request file")
+            f.writelines(json.dumps(requests, indent=2))
     
     def get_admin_chat_id(self):
         id_file_path = "var/admin_chat_id.txt"

@@ -53,7 +53,8 @@ class GroupBot:
         
         response = await self.langgraph_app.invoke(message)
         print("replying", response)
-        await update.message.reply_text(response)
+        if(response):
+            await update.message.reply_text(response)
 
     def format_message(self, update: Update) -> dict:
         message = update.effective_message

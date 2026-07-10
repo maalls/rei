@@ -52,7 +52,19 @@ async def test_admin_answer_formatting():
 
     print("result3:", result)
 
+    message = {
+        "chat_id": 123,
+        "chat_type": "group",
+        "text": "Chiki Chiki?",
+        "reply_to": None,
+        "from": {
+            "username": "@maalls"
+        }
+    }
 
+    result = await app.invoke(message)
+
+    assert result == "Ai Ai Ai!!!"
 
 
 

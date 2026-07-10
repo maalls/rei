@@ -11,7 +11,7 @@ from langchain_openai import ChatOpenAI
 from src.langgraph.nomic_vector_store import NomicVectorStore
 from src.telegram_bot.admin_bot import AdminBot
 class IntentClassifier(BaseModel):
-    message_intent: Literal['chat', 'knowledge', 'coding', 'handover_request'] = Field(..., description="Classify whether the user want to just chat, ask for knowledge, change code in the project, or ask a human a question (handover_request).")
+    message_intent: Literal['chat', 'knowledge', 'handover_request', 'chikichiki'] = Field(..., description="Classify whether the user want to just chat, ask for knowledge,  hand over a request to someone else (handover_request) or cheerfully reply 'ay ay ay' when saying 'chiki chiki' (chikichiki).")
     description: str = Field("...", description="A detailed description of what the intent is based on the last message and the log history.")
 
 class GroupIntent(BaseModel):
@@ -64,7 +64,7 @@ class LangGraphApp:
         self.vector_store.add_texts(KNOWNLEDGES)
 
         def group_intent(state: State):
-            print("group_intent", len(state["messages"]))
+            print("[group_intent] messages:", len(state["messages"]))
 
             last = json.loads(state["messages"][-1].content)
             last_text = last.get("text", "")                
@@ -91,7 +91,8 @@ class LangGraphApp:
                 logs.append(f"from {message["from"]["username"]}: {message["text"]}")
             
             log = "\n".join(logs)
-            print("log", log)
+            print("[group_intent] log:")
+            print(log)
             result = structured_llm.invoke([
             SystemMessage(content=f"""
                 Tu lis l'historique d'un groupe Telegram.
@@ -105,35 +106,36 @@ class LangGraphApp:
                 3. Si le dernier message est une réponse naturelle au bot sans autre destinataire explicite, il est adressé au bot.
                 4. Ne confonds jamais le sujet du message avec le destinataire.
                 5. Si le message est adressé à quelqu'un d'autre que le bot, ne réponds pas à sa place.
-
+                6. Si le message est 'chiki chiki' il est addressé a @maalls_bot
 
                 Historique :
                 {log}
                 """)
                 ])
             
-            print("is address to", result.is_addressed_to, result.reason)
+            print("[group_intent] is address to", result.is_addressed_to, result.reason)
             
             return { "should_reply": result.is_addressed_to == "maalls_bot" or result.is_addressed_to == "@maalls_bot", "reason": result.reason }
 
 
         async def classify_intent(state: State):
-            print("[classify_intent]", len(state["messages"]))
+            print("[classify_intent] messages: ", len(state["messages"]))
 
             request_reply = await is_request_reply(state)
             if request_reply:
                 messages = format_response(state["messages"], request_reply)
                 return {"message_intent": "request_reply", "messages": messages["messages"]}
 
-
             structured_llm = llm.with_structured_output(IntentClassifier)
 
             last_message = json.loads(state["messages"][-1].content)
-            print("last message", last_message)
+            print("[classify_intent] last message", last_message)
 
             log = "\n".join(
                 m.content for m in state["messages"][-6:]
             )
+            print("[classify_intent] log history:")
+            print(log)
 
             result = structured_llm.invoke([
                 {
@@ -148,6 +150,7 @@ class LangGraphApp:
                         - knowledge: demande d'information ou recherche dans une mémoire/base de connaissances
                         - coding: demande de modifier, écrire, corriger ou expliquer du code
                         - handover_request: demande de transmettre une requete a un autre utilisateur
+                        - chikichiki: la demande est de la forme "chiki chiki"
                         - chat: tout ce qui ne rentre pas de les autre categories
 
                         Dernier message:
@@ -163,7 +166,7 @@ class LangGraphApp:
                                 }
                             ])
 
-            print("intent:", result)
+            print("[classify_intent] intent:", result)
             return {"message_intent": result.message_intent}
         
         async def is_request_reply(state: State):
@@ -171,10 +174,12 @@ class LangGraphApp:
             message = state["messages"][-1]
             content = json.loads(message.content)
             if(content.get("reply_to")):
-                pending_request = self.admin_bot.find_pending_request(content["reply_to"]["message_id"])
+                message_id = content["reply_to"]["message_id"]
+                pending_request = self.admin_bot.find_pending_request(message_id=message_id)
                 if pending_request:
                     print("[is_request_reply] pending request found", pending_request["reply_to_channel_id"], content["text"])
                     await self.admin_bot.send_message(pending_request["reply_to_channel_id"], content["text"])
+                    self.admin_bot.remove_pending_request(message_id=message_id)
                     return Response(content=content["text"])
                 else:
                     return False
@@ -357,6 +362,9 @@ class LangGraphApp:
             print("------")
             return format_response(state["messages"], response)
 
+        def handle_chikichiki(state: State):
+            response = Response(content="Ai Ai Ai!!!")
+            return format_response(state["messages"], response)
         
         def format_response(messages, response):
             previous_content = json.loads(messages[-1].content)
@@ -385,6 +393,7 @@ class LangGraphApp:
         graph.add_node("rag_agent", prompt_llm_rag)
         graph.add_node("handover_request", handover_request)
         graph.add_node("code_agent", prompt_llm_code)
+        graph.add_node("chikichiki", handle_chikichiki)
         graph.add_edge(START, "group_intent")
         #graph.add_edge("group_intent", END)
 
@@ -402,13 +411,15 @@ class LangGraphApp:
             "knowledge": "rag_query",
             "coding": "code_agent",
             "handover_request": "handover_request",
-            "request_reply": END
+            "request_reply": END,
+            "chikichiki": "chikichiki"
         })
         graph.add_edge("chat_agent", END)
         graph.add_edge("rag_query", "rag_agent")
         graph.add_edge("rag_agent", END)
         graph.add_edge("code_agent", END)
         graph.add_edge("handover_request", END)
+        graph.add_edge("chikichiki", END)
 
         checkpointer = InMemorySaver()
         self.app = graph.compile(checkpointer=checkpointer)
@@ -420,8 +431,10 @@ class LangGraphApp:
                 'thread_id': str(message["chat_id"]),
             }
         }
-        result = await self.app.ainvoke({
+        state = await self.app.ainvoke({
             "messages": [{"role": "user", "content": json.dumps(message)}]
         }, config=config)
-
-        return json.loads(result['messages'][-1].content)["text"]
+        if state["should_reply"]:
+            return json.loads(state['messages'][-1].content)["text"]
+        else:
+            return False
