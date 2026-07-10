@@ -1,0 +1,32 @@
+{
+  "message": {
+    "channel_chat_created": false,
+    "delete_chat_photo": false,
+    "group_chat_created": false,
+    "supergroup_chat_created": false,
+    "text": "ok merci!",
+    "chat": {
+      "id": -5550552508,
+      "title": "Malo, MaloNoRei and Malo Kumo",
+      "type": "group",
+      "all_members_are_administrators": false,
+      "accepted_gift_types": {
+        "unlimited_gifts": false,
+        "limited_gifts": false,
+        "unique_gifts": false,
+        "premium_subscription": false,
+        "gifts_from_channels": false
+      }
+    },
+    "date": 1783674735,
+    "message_id": 119,
+    "from": {
+      "first_name": "Malo",
+      "id": 8269717067,
+      "is_bot": false,
+      "language_code": "en",
+      "username": "maalls"
+    }
+  },
+  "update_id": 337206570
+}

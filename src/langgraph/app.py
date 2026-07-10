@@ -70,17 +70,17 @@ class LangGraphApp:
             last_text = last.get("text", "")                
 
             if(last["chat_type"] == "private"):
-                print("it's a private chat so bot should reply")
+                print("[group_intent] it's a private chat so bot should reply")
                 return {
                     "should_reply": True,
                     "reason": "it's a private chat so bot should reply"
                 }
 
-            if "@maalls_bot" in last_text.lower():
-                print("@maalls_bot is mentioned in the message")
+            if "@" + self.admin_bot.username in last_text.lower():
+                print(f"@{self.admin_bot.username} is mentioned in the message")
                 return {
                     "should_reply": True,
-                    "reason": "Le dernier message mentionne explicitement @maalls_bot.",
+                    "reason": f"Le dernier message mentionne explicitement @{self.admin_bot.username}.",
                 }
 
             structured_llm = llm.with_structured_output(GroupIntent)
@@ -106,7 +106,7 @@ class LangGraphApp:
                 3. Si le dernier message est une réponse naturelle au bot sans autre destinataire explicite, il est adressé au bot.
                 4. Ne confonds jamais le sujet du message avec le destinataire.
                 5. Si le message est adressé à quelqu'un d'autre que le bot, ne réponds pas à sa place.
-                6. Si le message est 'chiki chiki' il est addressé a @maalls_bot
+                6. Si le message est 'chiki chiki' il est addressé a @{self.admin_bot.username}
 
                 Historique :
                 {log}
@@ -115,7 +115,7 @@ class LangGraphApp:
             
             print("[group_intent] is address to", result.is_addressed_to, result.reason)
             
-            return { "should_reply": result.is_addressed_to == "maalls_bot" or result.is_addressed_to == "@maalls_bot", "reason": result.reason }
+            return { "should_reply": result.is_addressed_to == self.admin_bot.username or result.is_addressed_to == "@" + self.admin_bot.username, "reason": result.reason }
 
 
         async def classify_intent(state: State):
@@ -131,9 +131,13 @@ class LangGraphApp:
             last_message = json.loads(state["messages"][-1].content)
             print("[classify_intent] last message", last_message)
 
-            log = "\n".join(
-                m.content for m in state["messages"][-6:]
-            )
+            logs = []
+            for message in state["messages"]:
+                message = json.loads(message.content)
+                logs.append(f"{message['from']['username']} said at {message.get('date')}: {message['text']}")
+            
+            log = "\n".join(logs)
+            
             print("[classify_intent] log history:")
             print(log)
 
@@ -149,7 +153,7 @@ class LangGraphApp:
                         Catégories:
                         - knowledge: demande d'information ou recherche dans une mémoire/base de connaissances
                         - coding: demande de modifier, écrire, corriger ou expliquer du code
-                        - handover_request: demande de transmettre une requete a un autre utilisateur
+                        - handover_request: demande de transmettre une requete a l'administrateur humain. Fait particulierement attention a regarder l'historique pour determiner si c'est une requete a transmettre ou pas.
                         - chikichiki: la demande est de la forme "chiki chiki"
                         - chat: tout ce qui ne rentre pas de les autre categories
 
@@ -178,7 +182,7 @@ class LangGraphApp:
                 pending_request = self.admin_bot.find_pending_request(message_id=message_id)
                 if pending_request:
                     print("[is_request_reply] pending request found", pending_request["reply_to_channel_id"], content["text"])
-                    await self.admin_bot.send_message(pending_request["reply_to_channel_id"], content["text"])
+                    await self.admin_bot.send_message(chat_id=pending_request["reply_to_channel_id"], reply_to_message_id=pending_request["from_message_id"], text=content["text"])
                     self.admin_bot.remove_pending_request(message_id=message_id)
                     return Response(content=content["text"])
                 else:
@@ -219,10 +223,10 @@ class LangGraphApp:
 
         def prompt_llm_rag(state: State):
             query = state["rag_query"]
-            print("prompting rag", query)
-            print("prompting rag", query)
+            print("[prompting rag] query:", query)
             docs = self.vector_store.similarity_search(query, k=3)
-            print("docs: ", docs)
+            print("[prompt_llm_rag] docs: ")
+            print(docs)
             context = "\n".join([doc.page_content for doc in docs])
             messages = [SystemMessage(content=f"You are a helpful assistant. You are a knowledge agent. You have access to the following knowledge:\n{context}\nAnswer the user question based on the knowledge provided and the chat history. if you don't have the answer, say 'I don't know'. Your response must be in plain text with only your reply.")] + state["messages"]
             response = llm.invoke(messages)            
@@ -245,7 +249,7 @@ class LangGraphApp:
                 print("[prompt_llm_rag] ", [state['messages'][-1]])
                 messages =  [state['messages'][-1]] + [{
                     "role": "user",
-                    "content": "Translate in the same language as the previous messages:\n " + "'I couldn't find the information, would you like me to transmit the request to the person?'"
+                    "content": "Translate in the same language as the previous messages:\n " + "'I couldn't find the information, would you like me to transmit the request to my admin?'"
                 }] 
                 print("[prompt_llm_rag] couldn't find the answer in the knowledge base.")
                 response = self.llm.invoke(messages)
@@ -270,6 +274,7 @@ class LangGraphApp:
             historic = []
             content = json.loads(state["messages"][-1].content)
             chat_id = content["chat_id"]
+            message_id = content["message_id"]
             for message in state["messages"]:
                 historic.append(to_llm_message(message=message))
 
@@ -297,7 +302,7 @@ class LangGraphApp:
             )
 
             print("[handover_request]  request", request.message)  # "ex: Quel est l' email de Malo?"
-            await self.admin_bot.request_admin(from_channel_id=chat_id, text=request.message)
+            await self.admin_bot.request_admin(from_channel_id=chat_id, from_message_id=message_id, text=request.message)
             response = Response(content= f"La demande {request.message} a été transmise")
             return format_response(state["messages"], response)
 
@@ -313,17 +318,17 @@ class LangGraphApp:
         def to_chat_line(message):
             data = json.loads(message.content)
             username = data.get("from", {}).get("username", "unknown")
-            username = "ASSISTANT" if username == "@maalls_bot" else username
+            username = "ASSISTANT" if username == "@" + self.admin_bot.username else username
             text = data.get("text", "")
-            text = text.replace("@maalls_bot", "").strip()
+            text = text.replace("@" + self.admin_bot.username, "").strip()
             return f"{username}: {text}"
 
         def to_llm_message(message):
             data = json.loads(message.content)
             username = data.get("from", {}).get("username", "unknown")
-            role = "assistant" if username == "@maalls_bot" else "user"
+            role = "assistant" if username == "@" + self.admin_bot.username else "user"
             text = data.get("text", "")
-            text = text.replace("@maalls_bot", "").strip()
+            text = text.replace("@" + self.admin_bot.username, "").strip()
             return {
                 "role": role,
                 "content": text
@@ -372,7 +377,7 @@ class LangGraphApp:
                 "chat_id": previous_content["chat_id"],
                 "text": response.content,
                 "from": {
-                    "username": "@maalls_bot"
+                    "username": "@" + self.admin_bot.username
                 }
             }
 

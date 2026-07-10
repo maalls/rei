@@ -11,13 +11,13 @@ class AdminBot():
         
         
 
-    async def  request_admin(self, from_channel_id: str, text: str):
+    async def  request_admin(self, from_channel_id: str, from_message_id: str, text: str):
 
         print("[request_admin] request_admin", from_channel_id, text)
         chat_id = self.get_admin_chat_id()
 
         message = await self.send_message(chat_id=chat_id, text=text)
-        self.store_pending_request(message_id=message.id, from_id=from_channel_id)
+        self.store_pending_request(message_id=message.id, request=text, from_channel_id=from_channel_id, from_message_id=from_message_id)
 
     async def review_pending_request(self, message):
 
@@ -36,8 +36,9 @@ class AdminBot():
             self.remove_pending_request(message["message_id"])
             
 
-    async def send_message(self, chat_id:str, text:str):
-        return await self.bot.send_message(chat_id=chat_id, text=text)
+    async def send_message(self, chat_id:str, text:str, reply_to_message_id: str | None = None):
+        print("[send_message] sending message to chat_id:", chat_id, "text:", text, "reply_to_message_id:", reply_to_message_id)
+        return await self.bot.send_message(chat_id=chat_id, text=text, reply_to_message_id=reply_to_message_id)
 
     def find_pending_request(self, message_id):
         print("[find_pending_request] searching pending request for ", message_id)
@@ -56,11 +57,13 @@ class AdminBot():
 
 
 
-    def store_pending_request(self, message_id, from_id):
+    def store_pending_request(self, message_id, request, from_channel_id, from_message_id):
         content = self.get_storage_content()
         content.append({
                 "message_id": message_id,
-                "reply_to_channel_id": from_id
+                "request": request,
+                "reply_to_channel_id": from_channel_id,
+                "from_message_id": from_message_id
             })
         self.store_pending_requests(content)
 
@@ -88,4 +91,3 @@ class AdminBot():
             raise ValueError("chat id has not be claimed.")
         
         return chat_id
-        

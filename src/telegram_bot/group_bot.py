@@ -57,6 +57,7 @@ class GroupBot:
             await update.message.reply_text(response)
 
     def format_message(self, update: Update) -> dict:
+        
         message = update.effective_message
         user = update.effective_user
         chat = update.effective_chat
@@ -77,6 +78,8 @@ class GroupBot:
             "chat_type": chat.type,
             "chat_id": chat.id,
             "message_id": message.message_id,
+            "date": message.date.isoformat(),
+            "timestamp": message.date.timestamp(),
             "from": {
                 "user_id": user.id,
                 "username": (

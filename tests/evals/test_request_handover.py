@@ -28,7 +28,7 @@ async def test_admin_answer_formatting():
         }
     }
     result = await app.invoke(message)
-    assert result == "Je n'ai pas trouvé d'informations à ce sujet. Voulez-vous que je transmette cette requête à la personne ?"
+    assert result == "Je n'ai pas trouvé les informations, aimerais-tu que je transmette cette requête à mon administrateur ?"
     message["text"] = "oui"
 
     result = await app.invoke(message)
@@ -63,7 +63,7 @@ async def test_admin_answer_formatting():
     }
 
     result = await app.invoke(message)
-
+    print(result)
     assert result == "Ai Ai Ai!!!"
 
 
