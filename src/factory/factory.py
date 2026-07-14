@@ -22,9 +22,9 @@ class Factory:
     def create_nomic_vector_store(self) -> NomicVectorStore:
         print("[Factory]Creating NomicVectorStore")
         store = NomicVectorStore(
-            model=self.settings.llm_model,
-            base_url=self.settings.llm_base_url,
-            api_key=self.settings.llm_api_key,
+            model=self.settings.embeddings_model,
+            base_url=self.settings.embeddings_base_url,
+            api_key=self.settings.embeddings_api_key,
             storage_file=self.settings.embeddings_storage_file
         )
         store.load()
