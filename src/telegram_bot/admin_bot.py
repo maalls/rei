@@ -3,11 +3,11 @@ import os
 import json
 class AdminBot():
     def __init__(self, bot: Bot, username: str, 
-            admin_password: str,):
+            admin_password: str, pending_request_file: str | None = None) -> None:
         self.bot = bot
         self.username = username
         self.admin_password = admin_password
-        self.pending_request_file = "var/pending_request.json"
+        self.pending_request_file = pending_request_file or "var/pending_request.json"
         
         
 

@@ -1,21 +1,17 @@
 from types import SimpleNamespace
-
 import pytest
-from src.config import settings
-from src.factory.factory import Factory
+from tests.evals.test_app import create_test_app
 from unittest.mock import AsyncMock
 from types import SimpleNamespace
 
-
 @pytest.mark.asyncio
 async def test_admin_answer_formatting():
-    factory = Factory(settings)
-    app = factory.create_langgraph_app()
+    
+    app = create_test_app()
     app.admin_bot.send_message = AsyncMock(
         return_value=SimpleNamespace(
         id=456
     )
-
     )
     user_message = "@maalls_bot quel est l'age de Malo"
     message = {

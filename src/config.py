@@ -41,6 +41,8 @@ class Settings:
     embeddings_model: str | None = None
     embeddings_base_url: str | None = None
     embeddings_api_key: str | None = None
+    embeddings_storage_file: str | None = None
+    pending_requests_file: str | None = None
     
 
 print(os.getenv("EMBEDDINGS_MODEL"))
@@ -58,4 +60,7 @@ settings = Settings(
     embeddings_model=os.getenv("EMBEDDINGS_MODEL"),
     embeddings_base_url=normalize_base_url(os.getenv("EMBEDDINGS_BASE_URL")),
     embeddings_api_key=os.getenv("EMBEDDINGS_API_KEY"),
+    embeddings_storage_file=os.getenv("EMBEDDINGS_STORAGE_FILE") or "var/memory.txt",
+    pending_requests_file=os.getenv("PENDING_REQUESTS_FILE") or "var/pending_requests.json"
+
 )

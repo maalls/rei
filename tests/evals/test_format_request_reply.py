@@ -1,17 +1,11 @@
-from types import SimpleNamespace
-
 import pytest
-from src.config import settings
-from src.factory.factory import Factory
-from unittest.mock import AsyncMock
-from types import SimpleNamespace
-
+from tests.evals.test_app import create_test_app
 
 @pytest.mark.asyncio
-async def test_double_questions():
-    factory = Factory(settings)
-    app = factory.create_langgraph_app()
-    
+async def test_format_request_reply():
+
+    # write dummy data to the embeddings storage file for testing
+    app = create_test_app()
     result = app.format_request_reply(request="Quelle est la date de naissance de Malo Yamakado?", reply="15 mars 1990.")
     print("result", result)
     assert result == "La date de naissance de Malo Yamakado est le 15 mars 1990."

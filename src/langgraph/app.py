@@ -59,18 +59,6 @@ class LangGraphApp:
         self.vector_store = vector_store
         self.admin_bot = admin_bot
 
-        KNOWNLEDGES = [
-            "Malo Yamakado email is dummy@gmail.com",
-            "Malo Yamakado phone number is 650-996-1234",
-            "Malo Yamakado address is 123 Main St, San Francisco, CA 94105",
-            "Malo Yamakado favorite color is blue",
-            "Malo Yamakado favorite food is sushi",
-            "Jean Dupont favorite food is pizza",
-            "Chang Lee favorite food is ramen",
-        ]
-
-        self.vector_store.add_texts(KNOWNLEDGES)
-
         def group_intent(state: State):
 
             print("[group_intent] messages:", len(state["messages"]))
@@ -174,7 +162,8 @@ class LangGraphApp:
                         L’historique sert uniquement à résoudre les références et comprendre le contexte.
 
                         Ne réutilise pas l’intention d’un message précédent si cette action a déjà été accomplie.
-
+                        par example, si l'assistant a déjà confirmé qu'une demande a été transmise à l'administrateur, il ne faut pas considérer que le dernier message est une nouvelle demande de transmission.
+                        Si l'utilisateur pose une question et que la reponse est deja connue par l'assistant, alors le dernier message est une demande de connaissance.
                         Si l’assistant vient de confirmer qu’une demande a été transmise, alors un message comme
                         "ok", "merci", "ok merci", "super", "parfait" est une simple réponse conversationnelle
                         et ne constitue pas une nouvelle demande de transmission.
@@ -213,8 +202,35 @@ class LangGraphApp:
                     print("[is_request_reply] pending request found", pending_request["reply_to_channel_id"], content["text"])
                     text = self.format_request_reply(request=pending_request["request"], reply=content["text"])
                     await self.admin_bot.send_message(chat_id=pending_request["reply_to_channel_id"], reply_to_message_id=pending_request["from_message_id"], text=text)
+
+                    forwarded_content = {
+                        "chat_id": pending_request["reply_to_channel_id"],
+                        "text": text,
+                        "from": {
+                            "username": "@" + self.admin_bot.username,
+                        },
+                        "date": date.today().isoformat(),
+                        "timestamp": int(time.time()),
+                    }
+                    await self.app.aupdate_state(
+                        config={
+                            "configurable": {
+                                "thread_id": str(pending_request["reply_to_channel_id"]),
+                            }
+                        },
+                        values={
+                            "messages": [
+                                {
+                                    "role": "assistant",
+                                    "content": json.dumps(forwarded_content, ensure_ascii=False),
+                                }
+                            ]
+                        },
+                    )
+
                     self.admin_bot.remove_pending_request(message_id=message_id)
-                    return Response(content=content["text"])
+                    self.store_new_knowledge(text=text)
+                    return Response(content=text)
                 else:
                     return False
             else:
@@ -259,7 +275,8 @@ class LangGraphApp:
             query = state["rag_query"]
             print("[prompting rag] query:", query)
             docs = self.vector_store.similarity_search(query, k=5)
-            print("[prompt_llm_rag] docs: ")
+            print("[prompt_llm_rag] docs: (", len(self.vector_store.store), " total docs)")
+
             for doc in docs:
                 print("[prompt_llm_rag] doc ", doc.page_content) 
             context = "\n".join([doc.page_content for doc in docs])
@@ -515,26 +532,35 @@ class LangGraphApp:
         else:
             return False
         
+    def store_new_knowledge(self, text: str):
+        print("[store_new_knowledge] storing new knowledge:", text)
+        self.vector_store.add_new_text(text)
+
 
     def format_request_reply(self, request: str, reply: str) -> str:
 
         class RequestReply(BaseModel):
             formatted_reply: str = Field(..., description="Format the question and answer so that it can be sent to the user who made the initial request and also stored in the knowledge base. The question and answer must be clearly identified.")
         prompt = SystemMessage(content=f"""
-            Formatte la question et la reponse afin qu'elle puisse etre envoyee a l'utilisateur qui a fait la demande initiale ainsi que d'etre stocker dans la base de connaissances. La question et la reponse doivent etre clairement identifiees:
+            Formattes la question et la reponse afin qu'elle puisse etre envoyee a l'utilisateur qui a fait la demande initiale ainsi que d'etre stocker dans la base de connaissances. La question et la reponse doivent etre clairement identifiees:
             Question: {request}
             Réponse: {reply}
 
             Exemple de formatage (1):
+            input:
             Question: Quelle est la couleur préférée de Malo Yamakado?
             Réponse: bleu.
-            Format attendu: La couleur préférée de Malo Yamakado est bleu.
+            output: 
+            La couleur préférée de Malo Yamakado est bleu.
 
             Exemple de formatage (2):
+            input:
             Question: Quelle est la date de naissance de Malo Yamakado?
             Réponse: 12 janvier 1990.
-            Format attendu: La date de naissance de Malo Yamakado est le 12 janvier 1990.
+            output: 
+            La date de naissance de Malo Yamakado est le 12 janvier 1990.
 
+            Dans les examples ci dessus, ta reponse doit correspondre au format attendu.
             """
         )
         llm = self.llm.with_structured_output(RequestReply)
