@@ -38,7 +38,11 @@ class RagNode:
         message = format_response(state["messages"], response, self.admin_username)
 
         result = structured_llm.invoke([
-            {'role': 'system', 'content': 'Determine whether you could answer to the user question (yes) or if you could not retrieve the answer from the knowledge base (no).'},
+            {'role': 'system', 'content': f"""
+             Determine if the assistant managed to retrieve the answer to the user question (yes) from the knowledge base or not (no).
+             question: {query}
+            answer: {message}
+             """},
         ] + state["messages"] + [message])
         print("[classify_rag_response] result:", result.could_reply)
 
