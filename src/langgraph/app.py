@@ -1,8 +1,5 @@
 from datetime import date
-import time
 import json
-from typing import Literal
-from pydantic import BaseModel, Field
 from src.langgraph.nodes.chat_node import ChatNode
 from src.langgraph.nodes.chikichiki_node import ChikiChikiNode
 from src.langgraph.nodes.should_reply_node import ShouldReplyNode
@@ -18,16 +15,6 @@ from langchain_openai import ChatOpenAI
 from src.langgraph.nomic_vector_store import NomicVectorStore
 from src.telegram_bot.admin_bot import AdminBot
 
-
-class RewrittenQuery(BaseModel):
-    question: str
-    reason: str
-
-class Response(BaseModel):
-    content: str | None
-    
-
-
 class LangGraphApp:
     def __init__(self, 
                  llm: ChatOpenAI, 
@@ -39,59 +26,19 @@ class LangGraphApp:
         self.vector_store = vector_store
         self.admin_bot = admin_bot
 
-        def rewrite_knowledge_query(state: State):
-            structured_llm = llm.with_structured_output(RewrittenQuery)
-
-            log = "\n".join(
-                m.content for m in state["messages"][-6:]
-            )
-            prompt = f"""
-                Tu reformules le DERNIER message utilisateur en une requête autonome pour un RAG.
-
-                Règles:
-                - Résous les pronoms et références implicites avec l'historique.
-                - "sa", "son", "lui", "il", "elle" doivent être remplacés par la personne concernée.
-                - Ne réponds pas à la question.
-                - Retourne une requête complète, claire et autonome.
-
-                Historique des messages récents (du plus ancien au plus récent):
-                {log}
-                """
-            print("[rewrite_knowledge_query] prompt:", prompt)
-            result = structured_llm.invoke([
-                {
-                    "role": "system",
-                    "content": prompt
-                }
-            ])
-
-            print("[rewrite_knowledge_query] rag question: ", result.question)
-
-            return {
-                "rag_query": result.question,
-                "rag_query_reason": result.reason,
-            }    
-
-            
-    
-
-        
-
         graph = StateGraph(State)
-
         chat_node = ChatNode(llm=llm, admin_username=self.admin_bot.username)
         chiki_chiki_node = ChikiChikiNode(llm=llm)
         should_reply_node = ShouldReplyNode(llm=llm, admin_username=self.admin_bot.username)
         handover_node = HandoverNode(llm=llm, admin_bot=self.admin_bot)
         is_handover_reply_node = IsHandoverReplyNode(llm=llm, admin_bot=self.admin_bot, vector_store=self.vector_store, forward_content=self.forward_content)
         classify_intent_node = ClassifyIntentNode(llm=llm)
-        rag_node = RagNode(llm=llm, vector_store=self.vector_store)
+        rag_node = RagNode(llm=llm, vector_store=self.vector_store, admin_username=self.admin_bot.username)
         graph.add_node("chikichiki", chiki_chiki_node.run)
         graph.add_node("should_reply", should_reply_node.run)
         graph.add_node("is_handover_reply", is_handover_reply_node.run)
         graph.add_node("classify_intent", classify_intent_node.run)
         graph.add_node("chat_agent", chat_node.run)
-        graph.add_node("rag_query", rewrite_knowledge_query)
         graph.add_node("rag_agent", rag_node.run)
         graph.add_node("handover_request", handover_node.run)
         graph.add_edge(START, "chikichiki")
@@ -117,13 +64,11 @@ class LangGraphApp:
         )
         graph.add_conditional_edges("classify_intent", lambda state: state["message_intent"], {
             "chat": "chat_agent",
-            "knowledge": "rag_query",
+            "knowledge": "rag_agent",
             "handover_request": "handover_request",
-            "request_reply": END,
             "chikichiki": "chikichiki"
         })
         graph.add_edge("chat_agent", END)
-        graph.add_edge("rag_query", "rag_agent")
         graph.add_edge("rag_agent", END)
         graph.add_edge("handover_request", END)
         graph.add_edge("chikichiki", END)

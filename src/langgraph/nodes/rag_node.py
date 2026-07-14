@@ -13,7 +13,7 @@ class RewrittenQuery(BaseModel):
     reason: str
 
 class RagNode:
-    def __init__(self, llm, vector_store, admin_username: str | None = None):
+    def __init__(self, llm, vector_store, admin_username: str):
         self.llm = llm
         self.vector_store = vector_store
         self.admin_username = admin_username
