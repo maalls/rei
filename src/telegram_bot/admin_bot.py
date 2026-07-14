@@ -1,9 +1,11 @@
 from telegram import Bot
+from src.agent.admin_agent import AdminAgent
 import os
 import json
-class AdminBot():
+class AdminBot(AdminAgent):
     def __init__(self, bot: Bot, username: str, 
             admin_password: str, pending_request_file: str | None = None) -> None:
+        super().__init__()
         self.bot = bot
         self.username = username
         self.admin_password = admin_password

@@ -1,3 +1,5 @@
+import asyncio
+
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -54,7 +56,16 @@ class GroupBot:
         response = await self.langgraph_app.invoke(message)
         print("replying", response)
         if(response):
-            await update.message.reply_text(response)
+            for attempt in range(1, 3):
+                try:
+                    await update.message.reply_text(response)
+                    return
+                except Exception as e:
+                    print(f"Attempt {attempt}: Failed to send message. Error: {e}")
+                    await asyncio.sleep(2)  # Wait for a second before retrying
+                    
+            raise Exception("Failed to send message.")
+                
 
     def format_message(self, update: Update) -> dict:
         
@@ -116,10 +127,11 @@ class GroupBot:
                 raise context.error
             except Exception as e:
                 print(f"Failed to send error message to user: {e}")
-                raise e
+                #raise e
 
     def run(self) -> None:
         print("Starting bot")
+
         application = ApplicationBuilder().token(self.token).build()
         application.add_handler(CommandHandler("start", self.start_command))
         application.add_handler(CommandHandler("claim", self.claim_admin_command))

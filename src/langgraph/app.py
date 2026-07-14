@@ -43,7 +43,7 @@ class CouldReplyClassifier(BaseModel):
 
 class ChikiChikiClassifier(BaseModel):
     is_chikichiki: bool = Field(..., description="Classify whether the last message is a 'chiki chiki' or not. If it is, return True, otherwise return False.")
-    content: str = "Ai Ai Ai!!!"
+    content: str = "Ai Ai Ai!"
 class HumanRequest(BaseModel):
     action: Literal["handover_request"]
     message: str = Field(..., description="The requested message to hand over")
@@ -444,7 +444,7 @@ class LangGraphApp:
             ])
             if response.is_chikichiki:
                 print("the message is a chiki chiki, returning Ai Ai Ai!!!")
-                response.content = "Ai Ai Ai!!!"
+                response.content = "Ai Ai Ai!"
                 messages = format_response(state["messages"], response)
                 return { "is_chikichiki": True, "should_reply": True, "messages": messages["messages"] }
             else:
