@@ -47,7 +47,7 @@ class GroupBot:
             await update.message.reply_text("Incorrect password.")
 
 
-    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT) -> None:
+    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not update.message or not update.message.text:
             return
         
