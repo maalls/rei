@@ -26,7 +26,7 @@ async def test_double_questions():
     print("user: ", message["text"])
     result = await app.invoke(message)
     print("assitant:", result)
-    assert result == "Je n'ai pas réussi à trouver l'information, voulez-vous que je transmette la demande à mon administrateur ?"
+    assert result == "Je n'ai pas trouvé l'information, voulez-vous que je transmette la demande à mon administrateur ?"
 
     message["text"] = "oui"
     print("user: ", message["text"])
@@ -48,5 +48,5 @@ async def test_double_questions():
     print("user: ", message["text"])
     result = await app.invoke(message)
     print("assistant: ", result)
-    assert result == "Ai Ai Ai!!!"
+    assert result == "Ai Ai Ai!"
     
