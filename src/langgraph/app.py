@@ -1,3 +1,5 @@
+from datetime import date
+import time
 import json
 from typing import TypedDict, Annotated, Literal
 from pydantic import BaseModel, Field
@@ -15,8 +17,11 @@ class IntentClassifier(BaseModel):
     description: str = Field("...", description="A detailed description of what the intent is based on the last message and the log history.")
 
 class GroupIntent(BaseModel):
-    reason: str = Field("...", description="An explanation on why the last message is addressed to this person")
-    is_addressed_to: str = Field("...", description="The person in the chat likely to reply to the message.")
+    addressed_to: str | None = Field(
+        description="Username du destinataire supposé, sans @, ou null si aucun destinataire spécifique."
+    )
+    reason: str
+
 class RewrittenQuery(BaseModel):
     question: str
     reason: str
@@ -26,6 +31,7 @@ class Response(BaseModel):
     
 class State(TypedDict):
     messages: Annotated[list, add_messages]
+    is_chikichiki: bool | None
     should_reply: str | None
     reason: str | None
     could_reply: str | None
@@ -35,7 +41,9 @@ class State(TypedDict):
 class CouldReplyClassifier(BaseModel):
     could_reply: Literal['yes', 'no'] = Field(..., description="Classify whether the LLM could find the information to the user requested or not.")
 
-
+class ChikiChikiClassifier(BaseModel):
+    is_chikichiki: bool = Field(..., description="Classify whether the last message is a 'chiki chiki' or not. If it is, return True, otherwise return False.")
+    content: str = "Ai Ai Ai!!!"
 class HumanRequest(BaseModel):
     action: Literal["handover_request"]
     message: str = Field(..., description="The requested message to hand over")
@@ -64,6 +72,7 @@ class LangGraphApp:
         self.vector_store.add_texts(KNOWNLEDGES)
 
         def group_intent(state: State):
+
             print("[group_intent] messages:", len(state["messages"]))
 
             last = json.loads(state["messages"][-1].content)
@@ -77,46 +86,54 @@ class LangGraphApp:
                 }
 
             if "@" + self.admin_bot.username in last_text.lower():
-                print(f"@{self.admin_bot.username} is mentioned in the message")
+                print(f"[group_intent] @{self.admin_bot.username} is mentioned in the message so should reply")
                 return {
                     "should_reply": True,
-                    "reason": f"Le dernier message mentionne explicitement @{self.admin_bot.username}.",
+                    "reason": f"Le dernier message mentionne explicitement: @{self.admin_bot.username}.",
                 }
 
             structured_llm = llm.with_structured_output(GroupIntent)
 
+            message = json.loads(state["messages"][-1].content)
+            last_message = f"{{ from: '{message['from']['username']}', text: {json.dumps(message['text'], ensure_ascii=False)} }}"
+            print("[group_intent] last message", last_message)
+
+            previous_messages = state["messages"][:-1]
+
             logs = []
-            for message in state["messages"]:
-                message = json.loads(message.content)
-                logs.append(f"from {message["from"]["username"]}: {message["text"]}")
-            
+            k = 1
+            for state_message in previous_messages[-10:]:
+                parsed = json.loads(state_message.content)
+
+                username = parsed.get("from", {}).get("username") or "unknown"
+                text = parsed.get("text", "")
+
+                logs.append(
+                    f"{k} - {{ from: '{username}', text: {json.dumps(text, ensure_ascii=False)} }}"
+                )
+                k += 1
+
             log = "\n".join(logs)
-            print("[group_intent] log:")
-            print(log)
+
+            prompt = f"""
+                Ton rôle est d’identifier la personne ou le bot à qui l’auteur parle
+                dans le dernier message.
+
+                Ne cherche pas la personne dont on parle.
+                Cherche la personne à qui la phrase est adressée.        
+                Messages PRÉCÉDENTS du plus ancien au plus récent:
+                {log or "(aucun message précédent)"}
+                dernier message:
+                {k+1} - {last_message}
+                """
+            print("[group_intent] prompt:", prompt)
             result = structured_llm.invoke([
-            SystemMessage(content=f"""
-                Tu lis l'historique d'un groupe Telegram.
-
-                Ton objectif est de déterminer à qui le DERNIER message est adressé.
-
-                Règles prioritaires :
-                1. Si le dernier message mentionne explicitement un username avec @, il est adressé à ce username.
-                2. Si le dernier message commence par un prénom ou username suivi d'une virgule, il est adressé à cette personne.
-                Exemple : "John, peux-tu le contacter ?" => adressé à John.
-                3. Si le dernier message est une réponse naturelle au bot sans autre destinataire explicite, il est adressé au bot.
-                4. Ne confonds jamais le sujet du message avec le destinataire.
-                5. Si le message est adressé à quelqu'un d'autre que le bot, ne réponds pas à sa place.
-                6. Si le message est 'chiki chiki' il est addressé a @{self.admin_bot.username}
-
-                Historique :
-                {log}
-                """)
+                    SystemMessage(content=prompt)
                 ])
             
-            print("[group_intent] is address to", result.is_addressed_to, result.reason)
+            print("[group_intent] addressed to:", result.addressed_to, "reason:", result.reason)
             
-            return { "should_reply": result.is_addressed_to == self.admin_bot.username or result.is_addressed_to == "@" + self.admin_bot.username, "reason": result.reason }
-
+            return { "should_reply": result.addressed_to == self.admin_bot.username or result.addressed_to == "@"+self.admin_bot.username, "addressed_to": result.addressed_to, "reason": result.reason }
 
         async def classify_intent(state: State):
             print("[classify_intent] messages: ", len(state["messages"]))
@@ -128,18 +145,20 @@ class LangGraphApp:
 
             structured_llm = llm.with_structured_output(IntentClassifier)
 
-            last_message = json.loads(state["messages"][-1].content)
+            message = json.loads(state["messages"][-1].content)
+            last_message = f"{message['from']['username']} said: {message['text']}"
             print("[classify_intent] last message", last_message)
 
             logs = []
             for message in state["messages"]:
                 message = json.loads(message.content)
-                logs.append(f"{message['from']['username']} said at {message.get('date')}: {message['text']}")
+                logs.append(f"{message['from']['username']} said: {message['text']}")
             
             log = "\n".join(logs)
             
             print("[classify_intent] log history:")
-            print(log)
+            for l in logs:
+                print("[classify_intent] - ", l)
 
             result = structured_llm.invoke([
                 {
@@ -147,14 +166,23 @@ class LangGraphApp:
                     "content": f"""
                         Tu es un classificateur d'intention.
 
-                        Tu dois classifier uniquement le DERNIER message utilisateur.
+                        Tu dois classifier le DERNIER message utilisateur.
                         Utilise l'historique pour résoudre le contexte du dernier message.
+
+                        Le dernier message est la seule source de l’intention actuelle.
+
+                        L’historique sert uniquement à résoudre les références et comprendre le contexte.
+
+                        Ne réutilise pas l’intention d’un message précédent si cette action a déjà été accomplie.
+
+                        Si l’assistant vient de confirmer qu’une demande a été transmise, alors un message comme
+                        "ok", "merci", "ok merci", "super", "parfait" est une simple réponse conversationnelle
+                        et ne constitue pas une nouvelle demande de transmission.
 
                         Catégories:
                         - knowledge: demande d'information ou recherche dans une mémoire/base de connaissances
                         - coding: demande de modifier, écrire, corriger ou expliquer du code
                         - handover_request: demande de transmettre une requete a l'administrateur humain. Fait particulierement attention a regarder l'historique pour determiner si c'est une requete a transmettre ou pas.
-                        - chikichiki: la demande est de la forme "chiki chiki"
                         - chat: tout ce qui ne rentre pas de les autre categories
 
                         Dernier message:
@@ -164,6 +192,7 @@ class LangGraphApp:
                         {log}
 
                         Important:
+                        - Tu dois classifier uniquement l'intention du DERNIER message utilisateur. L'historique est là pour t'aider à comprendre le contexte.
                         - Une question sur une personne, ex: email, téléphone, couleur préférée, nom, adresse, est "knowledge".
                         - Ne choisis "coding" que si le dernier message parle explicitement de code, bug, fonction, fichier, Python, LangGraph, etc.
                         """
@@ -182,39 +211,44 @@ class LangGraphApp:
                 pending_request = self.admin_bot.find_pending_request(message_id=message_id)
                 if pending_request:
                     print("[is_request_reply] pending request found", pending_request["reply_to_channel_id"], content["text"])
-                    await self.admin_bot.send_message(chat_id=pending_request["reply_to_channel_id"], reply_to_message_id=pending_request["from_message_id"], text=content["text"])
+                    text = self.format_request_reply(request=pending_request["request"], reply=content["text"])
+                    await self.admin_bot.send_message(chat_id=pending_request["reply_to_channel_id"], reply_to_message_id=pending_request["from_message_id"], text=text)
                     self.admin_bot.remove_pending_request(message_id=message_id)
                     return Response(content=content["text"])
                 else:
                     return False
             else:
                 return False
+            
+        
+
         def rewrite_knowledge_query(state: State):
             structured_llm = llm.with_structured_output(RewrittenQuery)
 
             log = "\n".join(
                 m.content for m in state["messages"][-6:]
             )
+            prompt = f"""
+                Tu reformules le DERNIER message utilisateur en une requête autonome pour un RAG.
 
+                Règles:
+                - Résous les pronoms et références implicites avec l'historique.
+                - "sa", "son", "lui", "il", "elle" doivent être remplacés par la personne concernée.
+                - Ne réponds pas à la question.
+                - Retourne une requête complète, claire et autonome.
+
+                Historique des messages récents (du plus ancien au plus récent):
+                {log}
+                """
+            print("[rewrite_knowledge_query] prompt:", prompt)
             result = structured_llm.invoke([
                 {
                     "role": "system",
-                    "content": f"""
-        Tu reformules le DERNIER message utilisateur en une requête autonome pour un RAG.
-
-        Règles:
-        - Résous les pronoms et références implicites avec l'historique.
-        - "sa", "son", "lui", "il", "elle" doivent être remplacés par la personne concernée.
-        - Ne réponds pas à la question.
-        - Retourne une requête complète, claire et autonome.
-
-        Historique:
-        {log}
-        """
+                    "content": prompt
                 }
             ])
 
-            print("rag question: ", result.question)
+            print("[rewrite_knowledge_query] rag question: ", result.question)
 
             return {
                 "rag_query": result.question,
@@ -224,36 +258,35 @@ class LangGraphApp:
         def prompt_llm_rag(state: State):
             query = state["rag_query"]
             print("[prompting rag] query:", query)
-            docs = self.vector_store.similarity_search(query, k=3)
+            docs = self.vector_store.similarity_search(query, k=5)
             print("[prompt_llm_rag] docs: ")
-            print(docs)
+            for doc in docs:
+                print("[prompt_llm_rag] doc ", doc.page_content) 
             context = "\n".join([doc.page_content for doc in docs])
-            messages = [SystemMessage(content=f"You are a helpful assistant. You are a knowledge agent. You have access to the following knowledge:\n{context}\nAnswer the user question based on the knowledge provided and the chat history. if you don't have the answer, say 'I don't know'. Your response must be in plain text with only your reply.")] + state["messages"]
+            messages = [SystemMessage(content=f"You are a helpful assistant. You are a knowledge agent. You have access to the following knowledge:\n{context}\nAnswer the user question based on the knowledge provided and the chat history. if you don't have the answer, say 'I don't know'. Your response must be in plain text with only your reply. Answer in the same language as the user question.")] + state["messages"]
             response = llm.invoke(messages)            
             response.content = normalize_text(response.content)
-            print("rag response:", response.content)
+            print("[prompt_llm_rag] response:", response.content)
 
             structured_llm = llm.with_structured_output(CouldReplyClassifier)
             message = format_response(state["messages"], response)
 
-            print("classifying rag response")
             result = structured_llm.invoke([
                 {'role': 'system', 'content': 'Determine whether the you could answer to the user question (yes) or if you could not retrieve the answer from the knowledge base (no).'},
             ] + state["messages"] + message["messages"])
             print("[classify_rag_response] result:", result.could_reply)
 
             if(result.could_reply == 'yes'):
-                print("[prompt_llm_rag] rag could replied", result.could_reply)
+                print("[prompt_llm_rag] rag could replied: ", result.could_reply)
                 return format_response(messages, response)
             else:
-                print("[prompt_llm_rag] ", [state['messages'][-1]])
                 messages =  [state['messages'][-1]] + [{
                     "role": "user",
-                    "content": "Translate in the same language as the previous messages:\n " + "'I couldn't find the information, would you like me to transmit the request to my admin?'"
+                    "content": "Translate in the same language as the previous messages (do not use quote or any formatting):\n " + "'I couldn't find the information, would you like me to transmit the request to my admin?'"
                 }] 
                 print("[prompt_llm_rag] couldn't find the answer in the knowledge base.")
                 response = self.llm.invoke(messages)
-                print('[prompt_llm_rag] response: ', response)
+                print('[prompt_llm_rag] response: ', response.content)
                 return format_response(state["messages"], response)
        
 
@@ -269,41 +302,52 @@ class LangGraphApp:
             
         async def handover_request(state: State):
             print("[handover_request] start")
-            llm_structured = llm.with_structured_output(HumanRequest)
 
-            historic = []
+            
             content = json.loads(state["messages"][-1].content)
             chat_id = content["chat_id"]
             message_id = content["message_id"]
-            for message in state["messages"]:
-                historic.append(to_llm_message(message=message))
 
-            print("[handover_request] historic", json.dumps(historic))
+            rewritten_query = state["rag_query"]
+            if not rewritten_query:
+                print("[handover_request] no rag query found, using last message text")
+                llm_structured = llm.with_structured_output(HumanRequest)
 
-            system_prompt = SystemMessage(
-                content="""
+                historic = []
+                content = json.loads(state["messages"][-1].content)
+                chat_id = content["chat_id"]
                 
-            You are preparing a request to be sent to a human.
+                for message in state["messages"]:
+                    historic.append(to_llm_message(message=message))
 
-            Extract ONLY the information that the human needs to answer.
+                print("[handover_request] historic", json.dumps(historic))
 
-            Rules:
-            - Keep the original meaning.
-            - Do not answer the request.
-            - Do not mention the AI assistant.
-            - Remove conversational filler.
-            - Rewrite as a direct question or request.
-            - Preserve all important details.
-            - If the request is ambiguous, include enough context to remove the ambiguity.
-            """
-            )
-            request = await llm_structured.ainvoke(
-                [system_prompt] + historic
-            )
+                system_prompt = SystemMessage(
+                    content="""
+                    
+                You are in charge of handing over a specific request.
+                Your role is to formulate a clear and concise request that the human administrator can understand and act upon.
+                Past request that has been already answered by the assistant should not be included in the request.
+                Extract ONLY the information that the human needs to answer.
 
-            print("[handover_request]  request", request.message)  # "ex: Quel est l' email de Malo?"
-            await self.admin_bot.request_admin(from_channel_id=chat_id, from_message_id=message_id, text=request.message)
-            response = Response(content= f"La demande {request.message} a été transmise")
+                Rules:
+                - Keep the original meaning.
+                - Do not answer the request.
+                - Do not mention the AI assistant.
+                - Remove conversational filler.
+                - Rewrite as a direct question or request.
+                - Preserve all important details.
+                - Do not include questions that have already been answered by the assistant.
+                - If the request is ambiguous, include enough context to remove the ambiguity.
+                """
+                )
+                response = await llm_structured.ainvoke(
+                    [system_prompt] + historic
+                )
+            else:
+                print("[handover_request]  request", rewritten_query)  # "ex: Quel est l' email de Malo?"
+                await self.admin_bot.request_admin(from_channel_id=chat_id, from_message_id=message_id, text=rewritten_query)
+                response = Response(content= f"La demande {rewritten_query} a bien été transmise. Je vous tiendrai informé dès que j'aurai une réponse.")
             return format_response(state["messages"], response)
 
 
@@ -352,6 +396,8 @@ class LangGraphApp:
             Do not return JSON.
             Do not include chat_id, username, metadata, or structured objects.
             Only write the message text that should be sent to the user.
+            Reply in the same language as the user question.
+                              
             """),
                     {
                         "role": "user",
@@ -368,8 +414,24 @@ class LangGraphApp:
             return format_response(state["messages"], response)
 
         def handle_chikichiki(state: State):
-            response = Response(content="Ai Ai Ai!!!")
-            return format_response(state["messages"], response)
+
+            print("[handle_chikichiki] handling chiki chiki")
+            prompt = "You are classifying whether the user is saying 'chiki chiki' or not. If user saying 'chiki chiki', return True, otherwise return False."
+            structured_llm = llm.with_structured_output(ChikiChikiClassifier)
+            response = structured_llm.invoke([
+                SystemMessage(content=prompt),
+                {
+                    "role": "user",
+                    "content": json.loads(state["messages"][-1].content)["text"]
+                }
+            ])
+            if response.is_chikichiki:
+                print("the message is a chiki chiki, returning Ai Ai Ai!!!")
+                response.content = "Ai Ai Ai!!!"
+                messages = format_response(state["messages"], response)
+                return { "is_chikichiki": True, "should_reply": True, "messages": messages["messages"] }
+            else:
+                return { "is_chikichiki": False }
         
         def format_response(messages, response):
             previous_content = json.loads(messages[-1].content)
@@ -378,7 +440,9 @@ class LangGraphApp:
                 "text": response.content,
                 "from": {
                     "username": "@" + self.admin_bot.username
-                }
+                },
+                "date": date.today().isoformat(),
+                "timestamp": int(time.time())
             }
 
             return {
@@ -391,6 +455,8 @@ class LangGraphApp:
             }
 
         graph = StateGraph(State)
+        graph.add_node("chikichiki", handle_chikichiki)
+
         graph.add_node("group_intent", group_intent)
         graph.add_node("classify_intent", classify_intent)
         graph.add_node("chat_agent", prompt_llm_chat)
@@ -398,10 +464,15 @@ class LangGraphApp:
         graph.add_node("rag_agent", prompt_llm_rag)
         graph.add_node("handover_request", handover_request)
         graph.add_node("code_agent", prompt_llm_code)
-        graph.add_node("chikichiki", handle_chikichiki)
-        graph.add_edge(START, "group_intent")
+        graph.add_edge(START, "chikichiki")
         #graph.add_edge("group_intent", END)
 
+        graph.add_conditional_edges(
+            "chikichiki", lambda state: state["is_chikichiki"], {
+                True: END,
+                False: "group_intent"
+            }
+        )
         graph.add_conditional_edges(
             "group_intent",
             lambda state: state["should_reply"],
@@ -440,6 +511,33 @@ class LangGraphApp:
             "messages": [{"role": "user", "content": json.dumps(message)}]
         }, config=config)
         if state["should_reply"]:
-            return json.loads(state['messages'][-1].content)["text"]
+            return json.loads(state['messages'][-1].content)["text"].strip()
         else:
             return False
+        
+
+    def format_request_reply(self, request: str, reply: str) -> str:
+
+        class RequestReply(BaseModel):
+            formatted_reply: str = Field(..., description="Format the question and answer so that it can be sent to the user who made the initial request and also stored in the knowledge base. The question and answer must be clearly identified.")
+        prompt = SystemMessage(content=f"""
+            Formatte la question et la reponse afin qu'elle puisse etre envoyee a l'utilisateur qui a fait la demande initiale ainsi que d'etre stocker dans la base de connaissances. La question et la reponse doivent etre clairement identifiees:
+            Question: {request}
+            Réponse: {reply}
+
+            Exemple de formatage (1):
+            Question: Quelle est la couleur préférée de Malo Yamakado?
+            Réponse: bleu.
+            Format attendu: La couleur préférée de Malo Yamakado est bleu.
+
+            Exemple de formatage (2):
+            Question: Quelle est la date de naissance de Malo Yamakado?
+            Réponse: 12 janvier 1990.
+            Format attendu: La date de naissance de Malo Yamakado est le 12 janvier 1990.
+
+            """
+        )
+        llm = self.llm.with_structured_output(RequestReply)
+        result = llm.invoke([prompt])
+        print("[format_request_reply] result:", result.formatted_reply)
+        return result.formatted_reply

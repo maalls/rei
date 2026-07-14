@@ -126,4 +126,4 @@ class GroupBot:
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         application.add_error_handler(self.error_handler)
         print("Polling...")
-        application.run_polling(poll_interval=1.0)
+        application.run_polling(poll_interval=2.0)

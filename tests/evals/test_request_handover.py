@@ -17,29 +17,34 @@ async def test_admin_answer_formatting():
     )
 
     )
-
+    user_message = "@maalls_bot quel est l'age de Malo"
     message = {
         "chat_id": 123,
         "message_id": 234,
         "chat_type": "group",
-        "text": "@maalls_bot quel est l'age de Malo",
+        "text": user_message,
         "from": {
             "username": "@maalls"
         }
     }
+    print("\n")
+    print("user: ", user_message)
     result = await app.invoke(message)
+    print("assitant:", result)
     assert result == "Je n'ai pas trouvé les informations, aimerais-tu que je transmette cette requête à mon administrateur ?"
     message["text"] = "oui"
-
+    print("user: ", message["text"])
     result = await app.invoke(message)
 
-    print("result2: ", result)
+    print("assistant: ", result)
 
+    user_message = "47 ans"
+    print(user_message)
     admin_chat_id = app.admin_bot.get_admin_chat_id()
     message = {
         "chat_id": admin_chat_id,
         "chat_type": "private",
-        "text": "47 ans",
+        "text": user_message,
         "reply_to": {
             "message_id": 456
         },
