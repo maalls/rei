@@ -40,8 +40,8 @@ class RagNode:
         result = structured_llm.invoke([
             {'role': 'system', 'content': f"""
              Determine if the assistant managed to retrieve the answer to the user question (yes) from the knowledge base or not (no).
-             question: {query}
-            answer: {message}
+             user: {query}
+            assistant: {message}
              """},
         ] + state["messages"] + [message])
         print("[classify_rag_response] result:", result.could_reply)
