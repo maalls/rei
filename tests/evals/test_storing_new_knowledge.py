@@ -30,8 +30,20 @@ async def test_storing_new_knowledge():
     print("assistant: ", result)
     assert result == "L'âge de Malo est 47 ans."
 
-    message = create_test_message("@maalls_bot quel est l'age de Malo", username="toto")
+    message = create_test_message("@maalls_bot quel est la marque de voiture de Malo?", username="toto", message_id=789)
     print("user: ", message["text"])
+    
+    result = await app.invoke(message)
+    print("assitant:", result)
+    app.admin_bot.send_message = AsyncMock(
+        return_value=SimpleNamespace(
+        id=789
+    ))
+    message["text"] = "oui"
+    print("user: ", message["text"])
+    result = await app.invoke(message)
+    print("assistant: ", result)
+    message = create_test_message("je ne sais pas", username="toto", chat_id=app.admin_bot.get_admin_chat_id(), chat_type="private", reply_to_message_id=789)
     result = await app.invoke(message)
     print("assitant:", result)
     

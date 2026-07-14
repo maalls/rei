@@ -21,7 +21,7 @@ class ChatNode:
         response = self.llm.invoke([
             SystemMessage(content="""
         You are a friendly assistant.
-        Reply normally as plain text.
+        Reply normally in plain text and in a short manner.
         Do not return JSON.
         Do not include chat_id, username, metadata, or structured objects.
         Only write the message text that should be sent to the user.

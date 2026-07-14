@@ -1,12 +1,10 @@
 
-from pydantic import BaseModel, Field
-from typing import Literal
+from pydantic import BaseModel
+from src.langgraph.classifier.could_reply_classifier import CouldReplyClassifier
 from src.langgraph.state import State
 from src.langgraph.format_response import format_response
 from langchain_core.messages import SystemMessage
 import json
-class CouldReplyClassifier(BaseModel):
-    could_reply: Literal['yes', 'no'] = Field(..., description="Classify whether the LLM could find the information to the user requested or not.")
 
 class RewrittenQuery(BaseModel):
     question: str
@@ -17,6 +15,8 @@ class RagNode:
         self.llm = llm
         self.vector_store = vector_store
         self.admin_username = admin_username
+        self.could_reply_classifier = CouldReplyClassifier(llm)
+
 
     async def run(self, state: State):
 
@@ -34,20 +34,13 @@ class RagNode:
         response.content = self.normalize_text(response.content)
         print("[prompt_llm_rag] response:", response.content)
 
-        structured_llm = self.llm.with_structured_output(CouldReplyClassifier)
         message = format_response(state["messages"], response, self.admin_username)
 
-        result = structured_llm.invoke([
-            {'role': 'system', 'content': f"""
-             Determine if the assistant managed to retrieve the answer to the user question (yes) from the knowledge base or not (no).
-             user: {query}
-            assistant: {message}
-             """},
-        ] + state["messages"] + [message])
-        print("[classify_rag_response] result:", result.could_reply)
-
-        if(result.could_reply == 'yes'):
-            print("[prompt_llm_rag] rag could replied: ", result.could_reply)
+        could_reply = self.could_reply_classifier.classify(query, message)
+        print("[classify_rag_response] result:", could_reply)
+             
+        if(could_reply):
+            print("[prompt_llm_rag] rag could replied")
             reply = {"messages": [format_response(messages, response, self.admin_username)]}
         else:
             messages =  [state['messages'][-1]] + [{

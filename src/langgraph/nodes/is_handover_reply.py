@@ -1,4 +1,5 @@
 
+from src.langgraph.classifier.could_reply_classifier import CouldReplyClassifier
 from src.langgraph.state import State
 from src.langgraph.response import Response
 from src.langgraph.format_response import format_response
@@ -13,6 +14,7 @@ class IsHandoverReplyNode:
         self.admin_bot = admin_bot
         self.vector_store = vector_store
         self.forward_content = forward_content
+        self.could_reply_classifier = CouldReplyClassifier(llm)
 
     async def run(self, state: State):
         request_reply = await self.is_request_reply(state)
@@ -42,11 +44,14 @@ class IsHandoverReplyNode:
                     "timestamp": int(time.time()),
                 }
                 await self.forward_content(pending_request["reply_to_channel_id"], forwarded_content)
-                            
-                
-
                 self.admin_bot.remove_pending_request(message_id=message_id)
-                self.store_new_knowledge(text=text)
+                
+                could_reply = self.could_reply_classifier.classify(pending_request["request"], content["text"]) 
+                if could_reply:
+                    print("[is_request_reply] the admin could reply to the user request, storing new knowledge.")
+                    self.store_new_knowledge(text=text)
+                else:
+                    print("[is_request_reply] the admin could not reply to the user request, not storing new knowledge.")
                 return Response(content=text)
             else:
                 return False

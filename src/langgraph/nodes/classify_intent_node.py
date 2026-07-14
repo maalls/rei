@@ -46,6 +46,7 @@ class ClassifyIntentNode:
 
                     Ne réutilise pas l’intention d’un message précédent si cette action a déjà été accomplie.
                     par example, si l'assistant a déjà confirmé qu'une demande a été transmise à l'administrateur (handover), passe en mode "chat" et repond si la reponse est disponible dans l'historique sinon dit lui de patienter.
+                    Par contre si l'utilisateur répond positivement (ok, oui, oui stp, etc) à une confirmation de demande de transmission, alors l'intention est de transmettre le message (handover_request).
                     Si l'utilisateur pose une question et que la reponse est deja connue par l'assistant ou deja transmise a l'utilisateur, alors le dernier message est une demande de connaissance et non pas une nouvelle demande de transmission.
                     Si l’assistant vient de confirmer qu’une demande a été transmise, alors un message comme
                     "ok", "merci", "ok merci", "super", "parfait" est une simple réponse conversationnelle
@@ -53,7 +54,7 @@ class ClassifyIntentNode:
 
                     Catégories:
                     - knowledge: demande d'information ou recherche dans une mémoire/base de connaissances
-                    - handover_request: demande de transmettre une requete a l'administrateur humain. Fait particulierement attention a regarder l'historique pour determiner si c'est une requete a transmettre ou pas. Si l'information est deja connue par l'assistant ou deja transmise a l'utilisateur, alors le dernier message est une demande de connaissance et non pas une nouvelle demande de transmission.
+                    - handover_request: une confirmation de transmettre une requete a l'administrateur humain. Fait particulierement attention a regarder l'historique pour determiner si c'est une requete a transmettre ou pas. Il faut chercher en priorité les informations dans la base de connaissances.
                     - chat: tout ce qui ne rentre pas de les autre categories
 
                     Dernier message:
