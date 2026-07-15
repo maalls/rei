@@ -11,7 +11,10 @@ If someone request is not available in the memory, the agent will propose to for
 create a telegram bot:
 https://www.youtube.com/watch?v=vZtm1wuA2yc
 
-install the project:
+Disable group privacy otherwise the bot wont be able to be included in a group.
+And also enable "Bot to Bot communication" otherwise the bot won't see messages from other bots in the group.
+
+Project installation:
 
 ```
 git clone https://github.com/maalls/rei
@@ -33,7 +36,7 @@ start the bot
 
 Create or go to your Telegram private chat with your bot, and type:
 ```
-/claim_admin TELEGRAM_ADMIN_PASSWORD
+/claim TELEGRAM_ADMIN_PASSWORD
 ```
 replacing TELEGRAM_ADMIN_PASSWORD as defined in your .env file.
 
