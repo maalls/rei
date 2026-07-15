@@ -78,7 +78,27 @@ class ShouldReplyNode:
             dans le dernier message.
 
             Ne cherche pas la personne dont on parle.
-            Cherche la personne à qui la phrase est adressée.        
+            Cherche la personne à qui la phrase est adressée.   
+            Les personnes mentionnées après des verbes comme
+            "demande à",
+            "dis à",
+            "préviens",
+            "transmets à",
+            "parle à"
+            ne sont PAS le destinataire.
+            
+            examples:
+            "@Bot demande à Paul quelle heure il est"
+            => destinataire = Bot
+
+            "Paul, dis à Jean bonjour"
+            => destinataire = Paul
+
+            "@Bot peux-tu demander à Malo..."
+            => destinataire = Bot
+
+            "Jean, demande à Paul..."
+            => destinataire = Jean     
             Messages PRÉCÉDENTS du plus ancien au plus récent:
             {log or "(aucun message précédent)"}
             dernier message:
