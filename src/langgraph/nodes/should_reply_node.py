@@ -82,8 +82,7 @@ class ShouldReplyNode:
         log = "\n".join(logs)
 
         prompt = f"""
-            Ton rôle est d’identifier la personne ou le bot à qui l’auteur parle
-            dans le dernier message.
+            Identifier qui est censé répondre au dernier message.
 
             Ne cherche pas la personne dont on parle.
             Cherche la personne à qui la phrase est adressée.   
@@ -95,17 +94,30 @@ class ShouldReplyNode:
             "parle à"
             ne sont PAS le destinataire.
 
+            Pour déterminer le destinataire, applique ces règles dans l'ordre :
+
+            1. Si une personne est explicitement interpellée au début du message
+            ("@Bot", "Paul,", etc.), c'est le destinataire.
+
+            2. Sinon, si le message est une réponse naturelle au message précédent,
+            alors le destinataire est l'auteur du message précédent.
+
+            3. Sinon, si le message poursuit clairement une conversation récente
+            entre deux personnes, le destinataire est l'autre participant.
+
+            4. Sinon, considère qu'il n'y a pas de destinataire identifiable.
+
             examples:
-            "@Bot demande à Paul quelle heure il est"
+            {{from: @toto, text:"@Bot demande à Paul quelle heure il est"}}
             => destinataire = Bot
 
-            "Paul, dis à Jean bonjour"
+            {{from: @toto, text:"Paul, dis à Jean bonjour"}}
             => destinataire = Paul
 
-            "@Bot peux-tu demander à Malo..."
+            {{from: @toto, text:"@Bot peux-tu demander à Malo..."}}
             => destinataire = Bot
 
-            "Jean, demande à Paul..."
+            {{from: @toto, text:"Jean, demande à Paul..."}}
             => destinataire = Jean     
             Messages PRÉCÉDENTS du plus ancien au plus récent:
             {log or "(aucun message précédent)"}
