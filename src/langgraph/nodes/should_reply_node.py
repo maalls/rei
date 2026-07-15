@@ -1,3 +1,5 @@
+import re
+
 from src.langgraph.state import State
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage
@@ -37,6 +39,22 @@ class ShouldReplyNode:
         message = json.loads(state["messages"][-1].content)
         last_message = f"{{ from: '{message['from']['username']}', text: {json.dumps(message['text'], ensure_ascii=False)} }}"
         print("[group_intent] last message", last_message)
+
+        m = re.match(r'^\s*@([A-Za-z0-9_]+)', text)
+        if m:
+            addressed_to = m.group(1)
+            if addressed_to.lower() == self.bot_username.lower():
+                print(f"[group_intent] message starts with @{self.bot_username} so should reply")
+                return {
+                    "should_reply": True,
+                    "reason": f"Le dernier message commence par: @{self.bot_username}.",
+                }
+            else:
+                print(f"[group_intent] message starts with @{addressed_to} so should not reply")
+                return {
+                    "should_reply": False,
+                    "reason": f"Le dernier message commence par: @{addressed_to}.",
+                }
 
         previous_messages = state["messages"][:-1]
 
