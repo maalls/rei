@@ -77,6 +77,28 @@ class LangGraphApp:
 
         self.app = graph.compile(checkpointer=checkpointer)
 
+    def toggle_auto_reply(self, thread_id: str) -> bool:
+        current_state = self.app.get_state(config={
+            'configurable': {
+                'thread_id': str(thread_id),
+            }
+        })
+        current_auto_reply = current_state.values.get("auto_reply", False)
+        new_auto_reply = not current_auto_reply
+        self.set_auto_reply(thread_id=thread_id, auto_reply=new_auto_reply)
+        return new_auto_reply
+    def set_auto_reply(self, thread_id: str, auto_reply: bool):
+        self.app.update_state(
+            config={
+                "configurable": {
+                    "thread_id": str(thread_id),
+                }
+            },
+            values={
+                "auto_reply": auto_reply
+            },
+        )
+
     async def invoke(self, message):
 
         config = {
@@ -84,6 +106,7 @@ class LangGraphApp:
                 'thread_id': str(message["chat_id"]),
             }
         }
+
         state = await self.app.ainvoke({
             "messages": [{"role": "user", "content": json.dumps(message)}]
         }, config=config)

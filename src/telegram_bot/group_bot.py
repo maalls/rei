@@ -41,6 +41,11 @@ class GroupBot:
         else:
             await update.message.reply_text("Incorrect password.")
 
+    async def toggle_auto_reply_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        
+        
+        new_auto_reply = self.langgraph_app.toggle_auto_reply(thread_id=update.effective_chat.id)
+        await update.message.reply_text(f"Le flag auto_reply a été mis à jour à {new_auto_reply} pour le thread ID {update.effective_chat.id}.")
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not update.message or not update.message.text:
@@ -130,6 +135,7 @@ class GroupBot:
         application = ApplicationBuilder().token(self.token).build()
         application.add_handler(CommandHandler("start", self.start_command))
         application.add_handler(CommandHandler("claim", self.claim_admin_command))
+        application.add_handler(CommandHandler("toggle_auto_reply", self.toggle_auto_reply_command))
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         application.add_error_handler(self.error_handler)
         print("Polling...")

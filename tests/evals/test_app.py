@@ -7,6 +7,7 @@ def create_test_app():
     test_settings = create_test_settings()
     factory = Factory(test_settings)
     app = factory.create_langgraph_app()
+    app.set_context_reply(thread_id="123", context_reply=True)
     return app
 
 def create_test_message(text,  username="test_user", message_id=234, chat_id=123, chat_type="group", reply_to_message_id=None):

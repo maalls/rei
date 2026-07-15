@@ -6,7 +6,7 @@ from langchain_core.messages import SystemMessage
 import json
 class GroupIntent(BaseModel):
     addressed_to: str | None = Field(
-        description="Username du destinataire supposé, sans @, ou null si aucun destinataire spécifique."
+        description="nom de la personne ou du bot à qui le message est adressé dans le groupe, sans @, ou null si aucun destinataire spécifique."
     )
     reason: str
 
@@ -33,6 +33,8 @@ class ShouldReplyNode:
                 "should_reply": True,
                 "reason": f"Le dernier message mentionne explicitement: @{self.bot_username}.",
             }
+        
+        
 
         structured_llm = self.llm.with_structured_output(GroupIntent)
 
@@ -40,7 +42,7 @@ class ShouldReplyNode:
         last_message = f"{{ from: '{message['from']['username']}', text: {json.dumps(message['text'], ensure_ascii=False)} }}"
         print("[group_intent] last message", last_message)
 
-        m = re.match(r'^\s*@([A-Za-z0-9_]+)', text)
+        m = re.match(r'^\s*@([A-Za-z0-9_]+)', message['text'])
         if m:
             addressed_to = m.group(1)
             if addressed_to.lower() == self.bot_username.lower():
@@ -55,7 +57,13 @@ class ShouldReplyNode:
                     "should_reply": False,
                     "reason": f"Le dernier message commence par: @{addressed_to}.",
                 }
-
+        print("[group_intent] content reply",state.get("auto_reply"), not state.get("auto_reply"))
+        if(not state.get("auto_reply")):
+            print("[group_intent] auto_reply is false so bot should not reply")
+            return {
+                "should_reply": False,
+                "reason": "Le flag auto_reply est false et le dernier message n'est pas une réponse à un message du bot.",
+            }
         previous_messages = state["messages"][:-1]
 
         logs = []
@@ -86,7 +94,7 @@ class ShouldReplyNode:
             "transmets à",
             "parle à"
             ne sont PAS le destinataire.
-            
+
             examples:
             "@Bot demande à Paul quelle heure il est"
             => destinataire = Bot
@@ -102,7 +110,7 @@ class ShouldReplyNode:
             Messages PRÉCÉDENTS du plus ancien au plus récent:
             {log or "(aucun message précédent)"}
             dernier message:
-            {k+1} - {last_message}
+            {k} - {last_message}
             """
         print("[group_intent] prompt:", prompt)
         result = structured_llm.invoke([
