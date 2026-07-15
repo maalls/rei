@@ -9,4 +9,4 @@ class State(TypedDict):
     could_reply: str | None
     rag_query: str
     rag_query_reason: str
-    auto_reply: bool = False
+    auto_reply: bool = True

@@ -5,10 +5,12 @@ from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage
 import json
 class GroupIntent(BaseModel):
-    addressed_to: str | None = Field(
-        description="nom de la personne ou du bot à qui le message est adressé dans le groupe, sans @, ou null si aucun destinataire spécifique."
+    should_reply: bool | None = Field(
+        description="TRUE si le bot doit répondre, FALSE sinon."
     )
-    reason: str
+    reason: str | None = Field(
+        description="Raison pour laquelle le bot doit répondre ou non."
+    )
 
 class ShouldReplyNode:
     def __init__(self, llm, bot_username):
@@ -82,44 +84,25 @@ class ShouldReplyNode:
         log = "\n".join(logs)
 
         prompt = f"""
-            Identifier qui est censé répondre au dernier message.
+            Tu incarnes uniquement {self.bot_username}.
 
-            Ne cherche pas la personne dont on parle.
-            Cherche la personne à qui la phrase est adressée.   
-            Les personnes mentionnées après des verbes comme
-            "demande à",
-            "dis à",
-            "préviens",
-            "transmets à",
-            "parle à"
-            ne sont PAS le destinataire.
+            Les autres bots, usernames et personnes sont des destinataires distincts.
+            Si le message mentionne explicitement un autre bot ou une autre personne, {self.bot_username} ne doit pas répondre, même si la question poursuit une conversation précédente avec lui.
 
-            Pour déterminer le destinataire, applique ces règles dans l'ordre :
+            Une mention explicite est prioritaire sur le contexte de la conversation.
+            Réponds uniquement par :
 
-            1. Si une personne est explicitement interpellée au début du message
-            ("@Bot", "Paul,", etc.), c'est le destinataire.
+            should_reply: true|false
+            reason: ...
 
-            2. Sinon, si le message est une réponse naturelle au message précédent,
-            alors le destinataire est l'auteur du message précédent.
+            Le bot doit répondre si :
 
-            3. Sinon, si le message poursuit clairement une conversation récente
-            entre deux personnes, le destinataire est l'autre participant.
+            - on lui parle directement ;
+            - une question poursuit naturellement une conversation avec lui ;
+            - une réponse est clairement destinée au bot.
 
-            4. Sinon, considère qu'il n'y a pas de destinataire identifiable.
-
-            examples:
-            {{from: @toto, text:"@Bot demande à Paul quelle heure il est"}}
-            => destinataire = Bot
-
-            {{from: @toto, text:"Paul, dis à Jean bonjour"}}
-            => destinataire = Paul
-
-            {{from: @toto, text:"@Bot peux-tu demander à Malo..."}}
-            => destinataire = Bot
-
-            {{from: @toto, text:"Jean, demande à Paul..."}}
-            => destinataire = Jean     
-            Messages PRÉCÉDENTS du plus ancien au plus récent:
+            Le bot ne répond pas si les utilisateurs parlent entre eux.  
+            Messages PRÉCÉDENTS du plus ancien au plus récent (from est l'autheur du message, et text est le contenu du message) :
             {log or "(aucun message précédent)"}
             dernier message:
             {k} - {last_message}
@@ -129,6 +112,6 @@ class ShouldReplyNode:
                 SystemMessage(content=prompt)
             ])
         
-        print("[group_intent] addressed to:", result.addressed_to, "reason:", result.reason)
+        print("[group_intent] should_reply:", result.should_reply, "reason:", result.reason)
         
-        return { "should_reply": result.addressed_to == self.bot_username or result.addressed_to == "@"+self.bot_username, "addressed_to": result.addressed_to, "reason": result.reason }
+        return { "should_reply": result.should_reply, "reason": result.reason }
