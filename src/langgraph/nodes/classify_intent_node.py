@@ -21,7 +21,8 @@ class ClassifyIntentNode:
         print("[classify_intent] last message", last_message)
 
         logs = []
-        for message in state["messages"]:
+        messages = state["messages"][-10:]  
+        for message in messages:
             message = json.loads(message.content)
             logs.append(f"{message['from']['username']} said: {message['text']}")
         

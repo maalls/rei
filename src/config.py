@@ -43,6 +43,7 @@ class Settings:
     embeddings_api_key: str | None = None
     embeddings_storage_file: str | None = None
     pending_requests_file: str | None = None
+    checkpoint_folder: str | None = None
     
 
 print(os.getenv("EMBEDDINGS_MODEL"))
@@ -61,6 +62,6 @@ settings = Settings(
     embeddings_base_url=normalize_base_url(os.getenv("EMBEDDINGS_BASE_URL")),
     embeddings_api_key=os.getenv("EMBEDDINGS_API_KEY"),
     embeddings_storage_file=os.getenv("EMBEDDINGS_STORAGE_FILE") or "var/memory.txt",
-    pending_requests_file=os.getenv("PENDING_REQUESTS_FILE") or "var/pending_requests.json"
-
+    pending_requests_file=os.getenv("PENDING_REQUESTS_FILE") or "var/pending_requests.json",
+    checkpoint_folder=os.getenv("CHECKPOINT_FOLDER") or "var/checkpoints"
 )

@@ -6,6 +6,8 @@ from langchain_openai import ChatOpenAI
 from src.langgraph.app import LangGraphApp
 from src.langgraph.nomic_vector_store import NomicVectorStore
 from src.telegram_bot.admin_bot import AdminBot
+from src.langgraph.checkpoint.file_saver import FileSaver
+
 class Factory:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -14,7 +16,8 @@ class Factory:
         llm = self.create_chat_openai()
         vector_store = self.create_nomic_vector_store()
         admin_bot = self.create_admin_bot()
-        return LangGraphApp(llm=llm, vector_store=vector_store, admin_bot=admin_bot)
+        checkpointer = self.create_checkpointer()
+        return LangGraphApp(llm=llm, vector_store=vector_store, admin_bot=admin_bot, checkpointer=checkpointer)
     
     def create_admin_bot(self) -> AdminBot:
         return AdminBot(Bot(token=self.settings.telegram_token), username=self.settings.telegram_bot_username, 
@@ -48,3 +51,6 @@ class Factory:
             langgraph_app=self.create_langgraph_app()
         )
     
+    def create_checkpointer(self):
+        
+        return FileSaver(directory=self.settings.checkpoint_folder)

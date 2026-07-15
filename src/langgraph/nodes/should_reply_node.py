@@ -42,7 +42,7 @@ class ShouldReplyNode:
 
         logs = []
         k = 1
-        for state_message in previous_messages[-10:]:
+        for state_message in previous_messages[-10:]: 
             parsed = json.loads(state_message.content)
 
             username = parsed.get("from", {}).get("username") or "unknown"

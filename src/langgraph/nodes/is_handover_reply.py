@@ -88,7 +88,7 @@ class IsHandoverReplyNode:
         )
         llm = self.llm.with_structured_output(RequestReply)
         result = llm.invoke([prompt])
-        print("[format_request_reply] result:", result.formatted_reply)
+        print("[format_request_reply] request:", request, "reply:", reply, "result:", result.formatted_reply)
         return result.formatted_reply
     
 

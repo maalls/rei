@@ -26,8 +26,21 @@ def create_test_message(text,  username="test_user", message_id=234, chat_id=123
 def create_test_settings():
     test_file = "var/memory_test.txt"
     pending_requests_file = "var/pending_requests_test.json"
-    test_settings = replace(settings, embeddings_storage_file=test_file, pending_requests_file=pending_requests_file)
+    checkpoint_folder = "var/checkpoints_test"
+    test_settings = replace(settings, 
+        embeddings_storage_file=test_file, 
+        pending_requests_file=pending_requests_file,
+        telegram_bot_username="maalls_bot",
+        checkpoint_folder=checkpoint_folder
+    )
     create_test_memory_file(test_settings.embeddings_storage_file)
+
+    # remove the checkpoint file if it exists
+    if os.path.exists(test_settings.checkpoint_folder):
+        for file in os.listdir(test_settings.checkpoint_folder):
+            file_path = os.path.join(test_settings.checkpoint_folder, file)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
     return test_settings
 
 def create_test_memory_file(file_path):

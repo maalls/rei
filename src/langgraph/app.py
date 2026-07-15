@@ -14,18 +14,19 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langchain_openai import ChatOpenAI
 from src.langgraph.nomic_vector_store import NomicVectorStore
 from src.telegram_bot.admin_bot import AdminBot
-from src.langgraph.checkpoint.file_saver import FileSaver
+
 
 class LangGraphApp:
     def __init__(self, 
                  llm: ChatOpenAI, 
                  vector_store: NomicVectorStore,
-                 admin_bot: AdminBot
-                 
+                 admin_bot: AdminBot,
+                 checkpointer: None = InMemorySaver()
                  ):
         self.llm = llm
         self.vector_store = vector_store
         self.admin_bot = admin_bot
+        
 
         graph = StateGraph(State)
         chat_node = ChatNode(llm=llm, admin_username=self.admin_bot.username)
@@ -73,10 +74,6 @@ class LangGraphApp:
         graph.add_edge("rag_agent", END)
         graph.add_edge("handover_request", END)
         graph.add_edge("chikichiki", END)
-
-        checkpointer = FileSaver(
-            directory="var/checkpoints"
-        )
 
         self.app = graph.compile(checkpointer=checkpointer)
 

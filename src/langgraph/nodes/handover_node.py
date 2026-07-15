@@ -32,7 +32,7 @@ class HandoverNode:
             content = json.loads(state["messages"][-1].content)
             chat_id = content["chat_id"]
             
-            for message in state["messages"]:
+            for message in state["messages"][-10:]:
                 historic.append(self.to_llm_message(message=message))
 
             print("[handover_request] historic", json.dumps(historic))
