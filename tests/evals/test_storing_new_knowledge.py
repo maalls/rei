@@ -18,7 +18,8 @@ async def test_storing_new_knowledge():
     print("user: ", message["text"])
     result = await app.invoke(message)
     print("assitant:", result)
-    assert result == "Je n'ai pas trouvé d'informations, voulez-vous que je transmette la demande à mon administrateur ?"
+    admin_name = app.admin_bot.get_admin_info()["display_name"]
+    assert result == f"Je n'ai pas trouvé l'information, voulez-vous que je transmette la demande à {admin_name} ?"
     message["text"] = "oui"
     print("user: ", message["text"])
     result = await app.invoke(message)

@@ -9,9 +9,9 @@ class GroupIntent(BaseModel):
     reason: str
 
 class ShouldReplyNode:
-    def __init__(self, llm, admin_username):
+    def __init__(self, llm, bot_username):
         self.llm = llm
-        self.admin_username = admin_username
+        self.bot_username = bot_username
     def run(self, state: State):
         print("[group_intent] messages:", len(state["messages"]))
 
@@ -25,11 +25,11 @@ class ShouldReplyNode:
                 "reason": "it's a private chat so bot should reply"
             }
 
-        if "@" + self.admin_username in last_text.lower():
-            print(f"[group_intent] @{self.admin_username} is mentioned in the message so should reply")
+        if "@" + self.bot_username in last_text.lower():
+            print(f"[group_intent] @{self.bot_username} is mentioned in the message so should reply")
             return {
                 "should_reply": True,
-                "reason": f"Le dernier message mentionne explicitement: @{self.admin_username}.",
+                "reason": f"Le dernier message mentionne explicitement: @{self.bot_username}.",
             }
 
         structured_llm = self.llm.with_structured_output(GroupIntent)
@@ -73,4 +73,4 @@ class ShouldReplyNode:
         
         print("[group_intent] addressed to:", result.addressed_to, "reason:", result.reason)
         
-        return { "should_reply": result.addressed_to == self.admin_username or result.addressed_to == "@"+self.admin_username, "addressed_to": result.addressed_to, "reason": result.reason }
+        return { "should_reply": result.addressed_to == self.bot_username or result.addressed_to == "@"+self.bot_username, "addressed_to": result.addressed_to, "reason": result.reason }

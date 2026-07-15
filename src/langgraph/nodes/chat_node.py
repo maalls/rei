@@ -3,9 +3,9 @@ import json
 from src.langgraph.format_response import format_response
 from src.langgraph.state import State
 class ChatNode:
-    def __init__(self, llm, admin_username: str):
+    def __init__(self, llm, bot_username: str):
         self.llm = llm
-        self.admin_username = admin_username
+        self.bot_username = bot_username
 
     def run(self, state: State):
         print("[prompt_llm_chat] prompting chat")
@@ -42,13 +42,13 @@ class ChatNode:
         print("------")
         
         return {
-            "messages": [format_response(state["messages"], response, self.admin_username)]
+            "messages": [format_response(state["messages"], response, self.bot_username)]
         }
     
     def to_chat_line(self, message):
         data = json.loads(message.content)
         username = data.get("from", {}).get("username", "unknown")
-        username = "ASSISTANT" if username == "@" + self.admin_username else username
+        username = "ASSISTANT" if username == "@" + self.bot_username else username
         text = data.get("text", "")
-        text = text.replace("@" + self.admin_username, "").strip()
+        text = text.replace("@" + self.bot_username, "").strip()
         return f"{username}: {text}"

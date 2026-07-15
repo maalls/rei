@@ -8,8 +8,11 @@ from langchain_core.messages import SystemMessage
 import json
 import time
 from datetime import date
+
+from src.telegram_bot.admin_bot import AdminBot
+
 class IsHandoverReplyNode:
-    def __init__(self, llm, admin_bot, vector_store, forward_content):
+    def __init__(self, llm, admin_bot: AdminBot, vector_store, forward_content):
         self.llm = llm
         self.admin_bot = admin_bot
         self.vector_store = vector_store
@@ -36,7 +39,7 @@ class IsHandoverReplyNode:
 
                 forwarded_content = {
                     "chat_id": pending_request["reply_to_channel_id"],
-                    "text": text,
+                    "text": "The answer: " + text + " a été envoyé à l'utilisateur.",
                     "from": {
                         "username": "@" + self.admin_bot.username,
                     },

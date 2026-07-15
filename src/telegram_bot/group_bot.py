@@ -35,13 +35,8 @@ class GroupBot:
         password = context.args[0] if context.args else None
         if password == self.admin_password:
             
-            # store the admin chat ID in a file for persistence
-            id_file_path = "var/admin_chat_id.txt"
-            chat_id = update.effective_chat.id
-            os.makedirs(os.path.dirname(id_file_path), exist_ok=True)
-            with open(id_file_path, "w") as f:
-                f.write(str(chat_id))
-            self.admin_chat_id = chat_id
+            self.langgraph_app.admin_bot.store_admin_info(update.effective_chat.id, update.effective_user.username, update.effective_user.full_name)
+            
             await update.message.reply_text("Chat admin set.")
         else:
             await update.message.reply_text("Incorrect password.")

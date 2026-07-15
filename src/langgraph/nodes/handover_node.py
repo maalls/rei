@@ -6,6 +6,8 @@ from src.langgraph.state import State
 from src.langgraph.response import Response
 from src.langgraph.format_response import format_response
 from langchain_core.messages import SystemMessage
+
+from src.telegram_bot.admin_bot import AdminBot
 class HumanRequest(BaseModel):
     action: Literal["handover_request"]
     message: str = Field(..., description="The requested message to hand over")
@@ -13,7 +15,7 @@ class HumanRequest(BaseModel):
 
 class HandoverNode:
 
-    def __init__(self, llm, admin_bot):
+    def __init__(self, llm, admin_bot: AdminBot):
         self.llm = llm
         self.admin_bot = admin_bot
 

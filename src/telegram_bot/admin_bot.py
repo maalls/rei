@@ -10,9 +10,8 @@ class AdminBot(AdminAgent):
         self.username = username
         self.admin_password = admin_password
         self.pending_request_file = pending_request_file or "var/pending_request.json"
+        self.admin_info_file = "var/admin_info.txt"
         
-        
-
     async def  request_admin(self, from_channel_id: str, from_message_id: str, text: str):
 
         print("[request_admin] request_admin", from_channel_id, text)
@@ -37,7 +36,6 @@ class AdminBot(AdminAgent):
             message = await self.send_message(chat_id=chat_id, text=text)
             self.remove_pending_request(message["message_id"])
             
-
     async def send_message(self, chat_id:str, text:str, reply_to_message_id: str | None = None):
         print("[send_message] sending message to chat_id:", chat_id, "text:", text, "reply_to_message_id:", reply_to_message_id)
         return await self.bot.send_message(chat_id=chat_id, text=text, reply_to_message_id=reply_to_message_id)
@@ -51,13 +49,10 @@ class AdminBot(AdminAgent):
         
         return False
 
-
     def remove_pending_request(self, message_id):
         requests = self.get_storage_content()
         requests = [item for item in requests if item["message_id"] != message_id]
         self.store_pending_requests(requests)
-
-
 
     def store_pending_request(self, message_id, request, from_channel_id, from_message_id):
         content = self.get_storage_content()
@@ -83,13 +78,40 @@ class AdminBot(AdminAgent):
         with open(self.pending_request_file, "w") as f:
             print("writing request to the pending request file")
             f.writelines(json.dumps(requests, indent=2))
-    
-    def get_admin_chat_id(self):
-        id_file_path = "var/admin_chat_id.txt"
-        with open(id_file_path, "r") as f:
-            chat_id = str(f.readline())
 
-        if not chat_id:
-            raise ValueError("chat id has not be claimed.")
+    def store_admin_info(self, chat_id, username, display_name):
+        admin_info = {
+            "chat_id": chat_id,
+            "username": username,
+            "display_name": display_name,
+        }
+        os.makedirs(os.path.dirname(self.admin_info_file), exist_ok=True)
+        with open(self.admin_info_file, "w") as f:
+            json.dump(admin_info, f)
+
+    def get_admin_info(self):
+        if not os.path.exists(self.admin_info_file):
+            return None
         
-        return chat_id
+        with open(self.admin_info_file, "r") as f:
+            admin_info = json.load(f)
+        return admin_info
+    
+    def get_admin_display_name(self):
+        admin_info = self.get_admin_info()
+        if not admin_info:
+            return None
+        return admin_info["display_name"]
+    
+    def get_admin_username(self):
+        admin_info = self.get_admin_info()
+        if not admin_info:
+            return None
+        return admin_info["username"]
+   
+    def get_admin_chat_id(self):
+        admin_info = self.get_admin_info()
+        if not admin_info:
+            return None
+        return admin_info["chat_id"]
+        

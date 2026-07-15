@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 from types import SimpleNamespace
 
 @pytest.mark.asyncio
-async def test_admin_answer_formatting():
+async def test_request_handover():
     
     app = create_test_app()
     app.admin_bot.send_message = AsyncMock(
@@ -27,7 +27,8 @@ async def test_admin_answer_formatting():
     print("user: ", user_message)
     result = await app.invoke(message)
     print("assitant:", result)
-    assert result == "Je n'ai pas trouvé les informations, aimerais-tu que je transmette cette requête à mon administrateur ?"
+    admin_name = app.admin_bot.get_admin_info()["display_name"]
+    assert result == f"Je n'ai pas trouvé d'informations, voulez-vous que je transmette la demande à {admin_name} ?"
     message["text"] = "oui"
     print("user: ", message["text"])
     result = await app.invoke(message)
@@ -65,7 +66,7 @@ async def test_admin_answer_formatting():
 
     result = await app.invoke(message)
     print(result)
-    assert result == "Ai Ai Ai!!!"
+    assert result == "Ai Ai Ai!"
 
 
 

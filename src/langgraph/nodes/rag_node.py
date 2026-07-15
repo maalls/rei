@@ -5,16 +5,19 @@ from src.langgraph.state import State
 from src.langgraph.format_response import format_response
 from langchain_core.messages import SystemMessage
 import json
+from src.langgraph.response import Response
+from src.telegram_bot.admin_bot import AdminBot
 
 class RewrittenQuery(BaseModel):
     question: str
     reason: str
 
 class RagNode:
-    def __init__(self, llm, vector_store, admin_username: str):
+    def __init__(self, llm, vector_store, admin_bot: AdminBot):
         self.llm = llm
         self.vector_store = vector_store
-        self.admin_username = admin_username
+        self.admin_bot = admin_bot
+        self.bot_username = self.admin_bot.username
         self.could_reply_classifier = CouldReplyClassifier(llm)
 
 
@@ -34,24 +37,32 @@ class RagNode:
         response.content = self.normalize_text(response.content)
         print("[prompt_llm_rag] response:", response.content)
 
-        message = format_response(state["messages"], response, self.admin_username)
+        message = format_response(state["messages"], response, self.bot_username)
 
         could_reply = self.could_reply_classifier.classify(query, message)
         print("[classify_rag_response] result:", could_reply)
              
         if(could_reply):
             print("[prompt_llm_rag] rag could replied")
-            reply = {"messages": [format_response(messages, response, self.admin_username)]}
+            reply = {"messages": [format_response(messages, response, self.bot_username)]}
         else:
-            messages =  [state['messages'][-1]] + [{
-                "role": "user",
-                "content": "Translate in the same language as the previous messages (do not use quote or any formatting):\n " + "'I couldn't find the information, would you like me to transmit the request to my admin?'"
-            }] 
-            print("[prompt_llm_rag] couldn't find the answer in the knowledge base.")
-            response = self.llm.invoke(messages)
-            print('[prompt_llm_rag] response: ', response.content)
-            reply =  {"messages": [format_response(state["messages"], response, self.admin_username)]}
-    
+
+            admin_info =self.admin_bot.get_admin_info()
+
+            if admin_info:
+                messages =  [state['messages'][-1]] + [{
+                    "role": "user",
+                    "content": "Translate in the same language as the previous messages (do not use quote or any formatting):\n " + f"'I couldn't find the information, would you like me to transmit the request to {admin_info['display_name']}?'"
+                }] 
+                print("[prompt_llm_rag] couldn't find the answer in the knowledge base.")
+                response = self.llm.invoke(messages)
+                print('[prompt_llm_rag] response: ', response.content)
+                reply =  {"messages": [format_response(state["messages"], response, self.bot_username)]}
+            else:
+                print("[prompt_llm_rag] couldn't find the answer in the knowledge base and no admin is set.")
+                response = Response(content="I couldn't find the information, and no admin is available to help.")
+                reply = {"messages": [format_response(state["messages"], response, self.bot_username)]}
+
         return {**reply, **rewritten_query}
     
     def normalize_text(self, value: str) -> str:

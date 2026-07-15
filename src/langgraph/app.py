@@ -29,13 +29,13 @@ class LangGraphApp:
         
 
         graph = StateGraph(State)
-        chat_node = ChatNode(llm=llm, admin_username=self.admin_bot.username)
+        chat_node = ChatNode(llm=llm, bot_username=self.admin_bot.username)
         chiki_chiki_node = ChikiChikiNode(llm=llm)
-        should_reply_node = ShouldReplyNode(llm=llm, admin_username=self.admin_bot.username)
+        should_reply_node = ShouldReplyNode(llm=llm, bot_username=self.admin_bot.username)
         handover_node = HandoverNode(llm=llm, admin_bot=self.admin_bot)
         is_handover_reply_node = IsHandoverReplyNode(llm=llm, admin_bot=self.admin_bot, vector_store=self.vector_store, forward_content=self.forward_content)
         classify_intent_node = ClassifyIntentNode(llm=llm)
-        rag_node = RagNode(llm=llm, vector_store=self.vector_store, admin_username=self.admin_bot.username)
+        rag_node = RagNode(llm=llm, vector_store=self.vector_store, admin_bot=self.admin_bot)
         graph.add_node("chikichiki", chiki_chiki_node.run)
         graph.add_node("should_reply", should_reply_node.run)
         graph.add_node("is_handover_reply", is_handover_reply_node.run)
