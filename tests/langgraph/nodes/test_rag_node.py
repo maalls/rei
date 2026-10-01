@@ -55,6 +55,8 @@ async def test_who_are_you_reply_depends_on_sender(sender, question, expected):
     prompt = llm.with_structured_output.return_value.invoke.call_args.args[0][0]["content"]
     assert "dans n'importe quelle langue" in prompt
     assert "dans la langue du message" in prompt
+    assert 'la langue de réponse est celle du champ "text"' in prompt.casefold()
+    assert "Je suis moi" in prompt
 
 
 @pytest.mark.asyncio

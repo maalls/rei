@@ -99,15 +99,22 @@ class RagNode:
 
                                 Exception pour les questions d'identité:
                                 - Détecte leur sens dans n'importe quelle langue, sans te limiter à des formulations précises.
-                                - Si le dernier message signifie "Who are you?", remplis identity_response dans la langue du message.
-                                    Si l'expéditeur Telegram est @maalls, la réponse doit signifier "I am you"; sinon, "I am myself".
+                                                                - La langue de réponse est celle du champ "text" du DERNIER message utilisateur. Ignore la
+                                                                    langue des présentes consignes, des exemples et des anciens messages. Ne recopie pas en
+                                                                    anglais les formulations anglaises ci-dessous si le dernier message est dans une autre langue.
+                                                                - Si le dernier message signifie "Who are you?", remplis identity_response dans cette langue.
+                                                                    Si l'expéditeur Telegram est @maalls, le sens est "I am you" (en français: "Je suis toi");
+                                                                    sinon, le sens est "I am myself" (en français: "Je suis moi").
                                 - Si le dernier message demande qui est Malo, et que l'expéditeur n'est pas @maalls, la réponse
-                                    doit signifier "He is me", dans la langue du message.
+                                  doit signifier "He is me" (en français: "Il est moi"), dans la langue du message.
                                 - Pour les autres questions "Who is [name]?", remplis identity_response avec un compliment bref,
-                                    positif, bienveillant et humoristique sur ce nom, dans la langue du message. Ne présente pas
-                                    d'informations inventées comme des faits réels.
+                                  positif, bienveillant et humoristique sur ce nom, dans la langue du message. Ne présente pas
+                                  d'informations inventées comme des faits réels.
                                 - Dans ces cas, identity_response contient uniquement le texte à envoyer. Pour les autres messages,
-                                    identity_response doit être null et tu appliques les règles de reformulation ci-dessus.
+                                  identity_response doit être null et tu appliques les règles de reformulation ci-dessus.
+
+                                Dernier message utilisateur (la langue de ce texte détermine la réponse):
+                                {state["messages"][-1].content}
 
                 Historique des messages récents (du plus ancien au plus récent):
                 {log}
