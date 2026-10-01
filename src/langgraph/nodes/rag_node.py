@@ -5,13 +5,13 @@ from src.langgraph.state import State
 from src.langgraph.format_response import format_response
 from langchain_core.messages import SystemMessage
 import json
-import re
 from src.langgraph.response import Response
 from src.telegram_bot.admin_bot import AdminBot
 
 class RewrittenQuery(BaseModel):
     question: str
     reason: str
+    identity_response: str | None = None
 
 class RagNode:
     def __init__(self, llm, vector_store, admin_bot: AdminBot):
@@ -23,49 +23,14 @@ class RagNode:
 
 
     async def run(self, state: State):
-
-        message = json.loads(state["messages"][-1].content)
-        question = message.get("text", "").strip()
-        question = re.sub(
-            rf"^\s*@{re.escape(self.bot_username)}\s*",
-            "",
-            question,
-            flags=re.IGNORECASE,
-        ).rstrip(" ?!.")
-        sender = message.get("from", {}).get("username", "").lstrip("@").casefold()
-        if re.fullmatch(r"qui\s+es[- ]tu", question, flags=re.IGNORECASE):
-            response = Response(content="je suis toi" if sender == "maalls" else "je suis moi")
+        rewritten_query = self.rewrite_knowledge_query(state)
+        identity_response = rewritten_query.pop("identity_response")
+        if identity_response:
+            response = Response(content=identity_response)
             return {
                 "messages": [format_response(state["messages"], response, self.bot_username)]
             }
 
-        identity_question = re.fullmatch(r"qui\s+est\s+(.+)", question, flags=re.IGNORECASE)
-        if identity_question:
-            name = identity_question.group(1).strip()
-            if name:
-                if name.casefold() == "malo" and sender != "maalls":
-                    response = Response(content="il est moi")
-                    return {
-                        "messages": [format_response(state["messages"], response, self.bot_username)]
-                    }
-
-                response = self.llm.invoke([
-                    SystemMessage(content=(
-                        "Tu réponds aux questions de type 'qui est [nom] ?' par une courte description "
-                        "positive, chaleureuse et humoristique de la personne. Invente une tournure différente "
-                        "à chaque réponse, avec un humour bienveillant, jamais moqueur ou blessant. "
-                        "Ne prétends pas connaître des faits réels sur cette personne: présente cela comme "
-                        "un compliment fantaisiste. Réponds dans la langue de la question, en texte brut, "
-                        "sans préambule."
-                    )),
-                    {"role": "user", "content": f"Qui est {name} ?"},
-                ])
-                response.content = self.normalize_text(response.content)
-                return {
-                    "messages": [format_response(state["messages"], response, self.bot_username)]
-                }
-
-        rewritten_query = self.rewrite_knowledge_query(state)
         query = rewritten_query["rag_query"]
         print("[prompting rag] query:", query)
         docs = self.vector_store.similarity_search(query, k=5)
@@ -132,6 +97,18 @@ class RagNode:
                 - Ne réponds pas à la question.
                 - Retourne une requête complète, claire et autonome.
 
+                                Exception pour les questions d'identité:
+                                - Détecte leur sens dans n'importe quelle langue, sans te limiter à des formulations précises.
+                                - Si le dernier message signifie "Who are you?", remplis identity_response dans la langue du message.
+                                    Si l'expéditeur Telegram est @maalls, la réponse doit signifier "I am you"; sinon, "I am myself".
+                                - Si le dernier message demande qui est Malo, et que l'expéditeur n'est pas @maalls, la réponse
+                                    doit signifier "He is me", dans la langue du message.
+                                - Pour les autres questions "Who is [name]?", remplis identity_response avec un compliment bref,
+                                    positif, bienveillant et humoristique sur ce nom, dans la langue du message. Ne présente pas
+                                    d'informations inventées comme des faits réels.
+                                - Dans ces cas, identity_response contient uniquement le texte à envoyer. Pour les autres messages,
+                                    identity_response doit être null et tu appliques les règles de reformulation ci-dessus.
+
                 Historique des messages récents (du plus ancien au plus récent):
                 {log}
                 """
@@ -148,4 +125,5 @@ class RagNode:
             return {
                 "rag_query": result.question,
                 "rag_query_reason": result.reason,
+                "identity_response": result.identity_response,
             }    
