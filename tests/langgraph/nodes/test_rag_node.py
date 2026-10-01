@@ -18,7 +18,12 @@ from src.langgraph.nodes.rag_node import RagNode
         ("@someone_else", "qui est tu ?", "Je suis moi"),
         ("@someone_else", "Who is Malo?", "He is me"),
         ("@maalls", "Qui suis-je ?", "Je suis toi"),
-        ("@alice", "Qui suis-je ?", "Tu es @alice, la seule personne qui rend les lundis jaloux."),
+        (
+            "@alice",
+            "Qui suis-je ?",
+            "Tu es @alice, capable de transformer une réunion ennuyeuse en sitcom primée. "
+            "Même ton agenda prend des notes pour apprendre à être aussi drôle.",
+        ),
     ],
 )
 async def test_who_are_you_reply_depends_on_sender(sender, question, expected):
@@ -62,6 +67,9 @@ async def test_who_are_you_reply_depends_on_sender(sender, question, expected):
     assert "Je suis toi" in prompt
     assert "Who am I?" in prompt
     assert "from.username" in prompt
+    assert "2 à 3 phrases" in prompt
+    assert "comparaison inattendue" in prompt
+    assert "chute drôle" in prompt
 
 
 @pytest.mark.asyncio
