@@ -5,6 +5,7 @@ from src.langgraph.state import State
 from src.langgraph.format_response import format_response
 from langchain_core.messages import SystemMessage
 import json
+import re
 from src.langgraph.response import Response
 from src.telegram_bot.admin_bot import AdminBot
 
@@ -22,6 +23,23 @@ class RagNode:
 
 
     async def run(self, state: State):
+
+        message = json.loads(state["messages"][-1].content)
+        question = message.get("text", "").strip()
+        question = re.sub(
+            rf"^\s*@{re.escape(self.bot_username)}\s*",
+            "",
+            question,
+            flags=re.IGNORECASE,
+        ).rstrip(" ?!.")
+        identity_question = re.fullmatch(r"qui\s+est\s+(.+)", question, flags=re.IGNORECASE)
+        if identity_question:
+            name = identity_question.group(1).strip()
+            if name:
+                response = Response(content=f"{name} est quelqu'un de formidable.")
+                return {
+                    "messages": [format_response(state["messages"], response, self.bot_username)]
+                }
 
         rewritten_query = self.rewrite_knowledge_query(state)
         query = rewritten_query["rag_query"]
