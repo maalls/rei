@@ -1,5 +1,6 @@
 
 from pydantic import BaseModel
+from typing import Literal
 from src.langgraph.classifier.could_reply_classifier import CouldReplyClassifier
 from src.langgraph.state import State
 from src.langgraph.format_response import format_response
@@ -11,7 +12,9 @@ from src.telegram_bot.admin_bot import AdminBot
 class RewrittenQuery(BaseModel):
     question: str
     reason: str
-    identity_response: str | None = None
+    identity_kind: Literal["who_am_i", "who_are_you", "who_is_person", "not_identity"] = "not_identity"
+    identity_name: str | None = None
+    identity_compliment: str | None = None
 
 class RagNode:
     def __init__(self, llm, vector_store, admin_bot: AdminBot):
@@ -24,8 +27,24 @@ class RagNode:
 
     async def run(self, state: State):
         rewritten_query = self.rewrite_knowledge_query(state)
-        identity_response = rewritten_query.pop("identity_response")
-        if identity_response:
+        identity_kind = rewritten_query.pop("identity_kind")
+        identity_name = rewritten_query.pop("identity_name")
+        identity_compliment = rewritten_query.pop("identity_compliment")
+        if identity_kind != "not_identity":
+            message = json.loads(state["messages"][-1].content)
+            sender = message.get("from", {}).get("username", "").lstrip("@").casefold()
+
+            if identity_kind in {"who_am_i", "who_are_you"} and sender == "maalls":
+                identity_response = "je suis toi"
+            elif identity_kind == "who_is_person" and identity_name and identity_name.casefold() == "malo" and sender != "maalls":
+                identity_response = "il est moi"
+            elif identity_kind in {"who_am_i", "who_are_you"}:
+                identity_response = f"tu es {identity_compliment}"
+            elif identity_kind == "who_is_person" and identity_name:
+                identity_response = f"{identity_name} est {identity_compliment}"
+            else:
+                identity_response = identity_compliment or ""
+
             response = Response(content=identity_response)
             return {
                 "messages": [format_response(state["messages"], response, self.bot_username)]
@@ -97,33 +116,22 @@ class RagNode:
                 - Ne réponds pas à la question.
                 - Retourne une requête complète, claire et autonome.
 
-                                Exception pour les questions d'identité:
-                                - Détecte leur sens dans n'importe quelle langue, sans te limiter à des formulations précises.
-                                - Base la langue de réponse exclusivement sur le champ "text" du DERNIER message utilisateur. Ignore la
-                                    langue des présentes consignes, des exemples et des anciens messages. Ne recopie pas les formulations
-                                    anglaises ci-dessous si le dernier message est dans une autre langue.
-                                - Si le dernier message signifie "Who are you?", remplis identity_response dans cette langue.
-                                    Si l'expéditeur Telegram est @maalls, le sens est "I am you" (en français: "Je suis toi"); sinon,
-                                    le sens est "I am myself" (en français: "Je suis moi").
-                                - Distingue "Who am I?" de "Who are you?". Si l'expéditeur est @maalls et demande qui il est,
-                                    réponds dans la langue du message avec le sens "I am you" (en français: "Je suis toi").
-                                - Si un expéditeur autre que @maalls demande qui il est ("Who am I?" / "Qui suis-je ?"), réponds
-                                    dans la langue du message en commençant par "Tu es <handle Telegram>," puis un compliment
-                                    positif et humoristique de 2 à 3 phrases. Reprends le handle exact depuis le champ "from.username"
-                                    du dernier message. Fais une comparaison inattendue et termine par une chute drôle; reste bienveillant,
-                                    varie les idées et n'invente pas de faits réels sur la personne.
-                                - Exception stricte: réponds avec le sens "He is me" (en français: "Il est moi") uniquement
-                                    si le sujet demandé est exactement Malo (sans tenir compte des majuscules) ET si l'expéditeur
-                                    n'est pas @maalls. Cette exception ne s'applique jamais à Roger ni à aucun autre nom.
-                                - Pour les autres questions "Who is [name]?", remplis identity_response avec un compliment positif,
-                                    bienveillant et humoristique de 2 à 3 phrases, dans la langue du message, avec une comparaison
-                                    inattendue et une chute drôle. Commence avec le nom demandé comme sujet (par exemple, "Roger est...").
-                                    N'utilise jamais "He is me", "Il est moi" ou "Il est toi" pour un autre nom. Ne présente pas
-                                    d'informations inventées comme des faits réels.
-                                - Dans ces cas, identity_response contient uniquement le texte à envoyer. Pour les autres messages,
-                                    identity_response doit être null et tu appliques les règles de reformulation ci-dessus.
+                Classification des questions d'identité:
+                - Détecte le sens de la DERNIÈRE question dans n'importe quelle langue et formulation.
+                - Pour "qui suis-je ?" / "who am I?", mets identity_kind="who_am_i".
+                - Pour "qui es-tu ?" / "qui est tu ?" / "who are you?", mets identity_kind="who_are_you".
+                - Pour "qui est [nom] ?" / "who is [name]?", mets identity_kind="who_is_person" et identity_name au nom demandé exactement.
+                - Pour les autres messages, mets identity_kind="not_identity" et identity_name=null.
+                - Ne rédige PAS la réponse complète: le code applique les réponses exactes selon le type et l'expéditeur:
+                  @maalls + who_am_i ou who_are_you => "je suis toi"; autre expéditeur + ces intentions => "tu es <compliment>";
+                  who_is_person dont le nom est exactement Malo, demandé par quelqu'un d'autre que @maalls => "il est moi";
+                  tout autre who_is_person => "<nom> est <compliment>".
+                - identity_compliment contient UNIQUEMENT le compliment, sans nom, pronom, sujet ni préfixe.
+                  Pour les réponses qui en ont besoin, fais un compliment positif et humoristique de 2 à 3 phrases,
+                  dans la langue du message, avec une comparaison inattendue et une chute drôle. Reste bienveillant
+                  et n'invente pas de faits réels. Pour une réponse fixe, identity_compliment peut être null.
 
-                                Dernier message utilisateur (la langue de ce texte détermine la réponse):
+                                Dernier message utilisateur:
                                 {state["messages"][-1].content}
 
                 Historique des messages récents (du plus ancien au plus récent):
@@ -142,5 +150,7 @@ class RagNode:
             return {
                 "rag_query": result.question,
                 "rag_query_reason": result.reason,
-                "identity_response": result.identity_response,
+                "identity_kind": result.identity_kind,
+                "identity_name": result.identity_name,
+                "identity_compliment": result.identity_compliment,
             }    

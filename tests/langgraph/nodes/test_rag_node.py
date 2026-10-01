@@ -10,34 +10,40 @@ from src.langgraph.nodes.rag_node import RagNode
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("sender", "question", "expected"),
+    ("sender", "question", "identity_kind", "name", "compliment", "expected"),
     [
-        ("@maalls", "who are you?", "I am you"),
-        ("@someone_else", "who are you?", "I am myself"),
-        ("@maalls", "¿Quién eres?", "Soy tú"),
-        ("@someone_else", "qui est tu ?", "Je suis moi"),
-        ("@someone_else", "Who is Malo?", "He is me"),
+        ("@maalls", "who are you?", "who_are_you", None, None, "je suis toi"),
+        ("@someone_else", "who are you?", "who_are_you", None, "un champion du café", "tu es un champion du café"),
+        ("@maalls", "¿Quién eres?", "who_are_you", None, None, "je suis toi"),
+        ("@someone_else", "qui est tu ?", "who_are_you", None, "une légende du quartier", "tu es une légende du quartier"),
+        ("@someone_else", "Who is Malo?", "who_is_person", "Malo", None, "il est moi"),
         (
             "@someone_else",
             "Qui est Roger ?",
-            "Roger est un rayon de soleil avec le sens du timing d'un humoriste. "
-            "Même son ombre rit avant la chute.",
+            "who_is_person",
+            "Roger",
+            "un rayon de soleil avec le sens du timing d'un humoriste. Même son ombre rit avant la chute.",
+            "Roger est un rayon de soleil avec le sens du timing d'un humoriste. Même son ombre rit avant la chute.",
         ),
-        ("@maalls", "Qui suis-je ?", "Je suis toi"),
+        ("@maalls", "Qui suis-je ?", "who_am_i", None, None, "je suis toi"),
         (
             "@alice",
             "Qui suis-je ?",
-            "Tu es @alice, capable de transformer une réunion ennuyeuse en sitcom primée. "
-            "Même ton agenda prend des notes pour apprendre à être aussi drôle.",
+            "who_am_i",
+            None,
+            "capable de transformer une réunion ennuyeuse en sitcom primée. Même ton agenda prend des notes pour apprendre à être aussi drôle.",
+            "tu es capable de transformer une réunion ennuyeuse en sitcom primée. Même ton agenda prend des notes pour apprendre à être aussi drôle.",
         ),
     ],
 )
-async def test_who_are_you_reply_depends_on_sender(sender, question, expected):
+async def test_identity_question_gets_rule_based_reply(sender, question, identity_kind, name, compliment, expected):
     llm = Mock()
     llm.with_structured_output.return_value.invoke.return_value = SimpleNamespace(
         question=question,
         reason="identity question",
-        identity_response=expected,
+        identity_kind=identity_kind,
+        identity_name=name,
+        identity_compliment=compliment,
     )
     vector_store = Mock()
     node = RagNode(
@@ -66,19 +72,9 @@ async def test_who_are_you_reply_depends_on_sender(sender, question, expected):
     llm.invoke.assert_not_called()
     vector_store.similarity_search.assert_not_called()
     prompt = llm.with_structured_output.return_value.invoke.call_args.args[0][0]["content"]
-    assert "dans n'importe quelle langue" in prompt
-    assert "dans la langue du message" in prompt
-    assert 'base la langue de réponse exclusivement sur le champ "text"' in prompt.casefold()
-    assert "Je suis moi" in prompt
-    assert "Je suis toi" in prompt
-    assert "Who am I?" in prompt
-    assert "from.username" in prompt
-    assert "2 à 3 phrases" in prompt
-    assert "comparaison inattendue" in prompt
-    assert "chute drôle" in prompt
-    assert "sujet demandé est exactement Malo" in prompt
-    assert "Cette exception ne s'applique jamais à Roger" in prompt
-    assert "N'utilise jamais" in prompt
+    assert 'identity_kind="who_am_i"' in prompt
+    assert 'identity_kind="who_are_you"' in prompt
+    assert 'identity_kind="who_is_person"' in prompt
 
 
 @pytest.mark.asyncio
@@ -87,7 +83,9 @@ async def test_malo_identity_question_from_other_sender_gets_fixed_reply():
     llm.with_structured_output.return_value.invoke.return_value = SimpleNamespace(
         question="Who is Malo?",
         reason="identity question",
-        identity_response="He is me",
+        identity_kind="who_is_person",
+        identity_name="Malo",
+        identity_compliment=None,
     )
     vector_store = Mock()
     node = RagNode(
@@ -112,7 +110,7 @@ async def test_malo_identity_question_from_other_sender_gets_fixed_reply():
     result = await node.run(state)
 
     response = json.loads(result["messages"][0]["content"])
-    assert response["text"] == "He is me"
+    assert response["text"] == "il est moi"
     llm.invoke.assert_not_called()
     vector_store.similarity_search.assert_not_called()
 
@@ -123,7 +121,9 @@ async def test_identity_question_gets_positive_reply_without_rag():
     llm.with_structured_output.return_value.invoke.return_value = SimpleNamespace(
         question="Who is Malo Yamakado?",
         reason="identity question",
-        identity_response="Malo Yamakado makes Mondays look forward to meeting him.",
+        identity_kind="who_is_person",
+        identity_name="Malo Yamakado",
+        identity_compliment="the kind of person who makes Mondays ask for an encore.",
     )
     vector_store = Mock()
     node = RagNode(
@@ -147,11 +147,12 @@ async def test_identity_question_gets_positive_reply_without_rag():
     result = await node.run(state)
 
     response = json.loads(result["messages"][0]["content"])
-    assert response["text"] == llm.with_structured_output.return_value.invoke.return_value.identity_response
+    assert response["text"] == (
+        "Malo Yamakado est "
+        + llm.with_structured_output.return_value.invoke.return_value.identity_compliment
+    )
     system_prompt = llm.with_structured_output.return_value.invoke.call_args.args[0][0]["content"]
-    assert "positif" in system_prompt
-    assert "humoristique" in system_prompt
-    assert "dans la langue du message" in system_prompt
+    assert "identity_compliment contient UNIQUEMENT le compliment" in system_prompt
     llm.with_structured_output.assert_called_once()
     llm.with_structured_output.return_value.invoke.assert_called_once()
     llm.invoke.assert_not_called()
