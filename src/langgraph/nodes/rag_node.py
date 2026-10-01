@@ -32,11 +32,35 @@ class RagNode:
             question,
             flags=re.IGNORECASE,
         ).rstrip(" ?!.")
+        sender = message.get("from", {}).get("username", "").lstrip("@").casefold()
+        if re.fullmatch(r"qui\s+es[- ]tu", question, flags=re.IGNORECASE):
+            response = Response(content="je suis toi" if sender == "maalls" else "je suis moi")
+            return {
+                "messages": [format_response(state["messages"], response, self.bot_username)]
+            }
+
         identity_question = re.fullmatch(r"qui\s+est\s+(.+)", question, flags=re.IGNORECASE)
         if identity_question:
             name = identity_question.group(1).strip()
             if name:
-                response = Response(content=f"{name} est quelqu'un de formidable.")
+                if name.casefold() == "malo" and sender != "maalls":
+                    response = Response(content="il est moi")
+                    return {
+                        "messages": [format_response(state["messages"], response, self.bot_username)]
+                    }
+
+                response = self.llm.invoke([
+                    SystemMessage(content=(
+                        "Tu réponds aux questions de type 'qui est [nom] ?' par une courte description "
+                        "positive, chaleureuse et humoristique de la personne. Invente une tournure différente "
+                        "à chaque réponse, avec un humour bienveillant, jamais moqueur ou blessant. "
+                        "Ne prétends pas connaître des faits réels sur cette personne: présente cela comme "
+                        "un compliment fantaisiste. Réponds dans la langue de la question, en texte brut, "
+                        "sans préambule."
+                    )),
+                    {"role": "user", "content": f"Qui est {name} ?"},
+                ])
+                response.content = self.normalize_text(response.content)
                 return {
                     "messages": [format_response(state["messages"], response, self.bot_username)]
                 }
