@@ -99,19 +99,25 @@ class RagNode:
 
                                 Exception pour les questions d'identité:
                                 - Détecte leur sens dans n'importe quelle langue, sans te limiter à des formulations précises.
-                                                                - La langue de réponse est celle du champ "text" du DERNIER message utilisateur. Ignore la
-                                                                    langue des présentes consignes, des exemples et des anciens messages. Ne recopie pas en
-                                                                    anglais les formulations anglaises ci-dessous si le dernier message est dans une autre langue.
-                                                                - Si le dernier message signifie "Who are you?", remplis identity_response dans cette langue.
-                                                                    Si l'expéditeur Telegram est @maalls, le sens est "I am you" (en français: "Je suis toi");
-                                                                    sinon, le sens est "I am myself" (en français: "Je suis moi").
+                                - Base la langue de réponse exclusivement sur le champ "text" du DERNIER message utilisateur. Ignore la
+                                    langue des présentes consignes, des exemples et des anciens messages. Ne recopie pas les formulations
+                                    anglaises ci-dessous si le dernier message est dans une autre langue.
+                                - Si le dernier message signifie "Who are you?", remplis identity_response dans cette langue.
+                                    Si l'expéditeur Telegram est @maalls, le sens est "I am you" (en français: "Je suis toi"); sinon,
+                                    le sens est "I am myself" (en français: "Je suis moi").
+                                - Distingue "Who am I?" de "Who are you?". Si l'expéditeur est @maalls et demande qui il est,
+                                    réponds dans la langue du message avec le sens "I am you" (en français: "Je suis toi").
+                                - Si un expéditeur autre que @maalls demande qui il est ("Who am I?" / "Qui suis-je ?"), réponds
+                                    dans la langue du message sous la forme "Tu es <handle Telegram>, <compliment positif et humoristique>".
+                                    Reprends le handle exact depuis le champ "from.username" du dernier message. Fais varier le compliment,
+                                    reste bienveillant et n'invente pas l'identité de la personne.
                                 - Si le dernier message demande qui est Malo, et que l'expéditeur n'est pas @maalls, la réponse
-                                  doit signifier "He is me" (en français: "Il est moi"), dans la langue du message.
+                                    doit signifier "He is me" (en français: "Il est moi"), dans la langue du message.
                                 - Pour les autres questions "Who is [name]?", remplis identity_response avec un compliment bref,
-                                  positif, bienveillant et humoristique sur ce nom, dans la langue du message. Ne présente pas
-                                  d'informations inventées comme des faits réels.
+                                    positif, bienveillant et humoristique sur ce nom, dans la langue du message. Ne présente pas
+                                    d'informations inventées comme des faits réels.
                                 - Dans ces cas, identity_response contient uniquement le texte à envoyer. Pour les autres messages,
-                                  identity_response doit être null et tu appliques les règles de reformulation ci-dessus.
+                                    identity_response doit être null et tu appliques les règles de reformulation ci-dessus.
 
                                 Dernier message utilisateur (la langue de ce texte détermine la réponse):
                                 {state["messages"][-1].content}

@@ -17,6 +17,8 @@ from src.langgraph.nodes.rag_node import RagNode
         ("@maalls", "¿Quién eres?", "Soy tú"),
         ("@someone_else", "qui est tu ?", "Je suis moi"),
         ("@someone_else", "Who is Malo?", "He is me"),
+        ("@maalls", "Qui suis-je ?", "Je suis toi"),
+        ("@alice", "Qui suis-je ?", "Tu es @alice, la seule personne qui rend les lundis jaloux."),
     ],
 )
 async def test_who_are_you_reply_depends_on_sender(sender, question, expected):
@@ -55,8 +57,11 @@ async def test_who_are_you_reply_depends_on_sender(sender, question, expected):
     prompt = llm.with_structured_output.return_value.invoke.call_args.args[0][0]["content"]
     assert "dans n'importe quelle langue" in prompt
     assert "dans la langue du message" in prompt
-    assert 'la langue de réponse est celle du champ "text"' in prompt.casefold()
+    assert 'base la langue de réponse exclusivement sur le champ "text"' in prompt.casefold()
     assert "Je suis moi" in prompt
+    assert "Je suis toi" in prompt
+    assert "Who am I?" in prompt
+    assert "from.username" in prompt
 
 
 @pytest.mark.asyncio
