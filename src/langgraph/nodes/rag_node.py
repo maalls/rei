@@ -112,11 +112,14 @@ class RagNode:
                                     positif et humoristique de 2 à 3 phrases. Reprends le handle exact depuis le champ "from.username"
                                     du dernier message. Fais une comparaison inattendue et termine par une chute drôle; reste bienveillant,
                                     varie les idées et n'invente pas de faits réels sur la personne.
-                                - Si le dernier message demande qui est Malo, et que l'expéditeur n'est pas @maalls, la réponse
-                                    doit signifier "He is me" (en français: "Il est moi"), dans la langue du message.
+                                - Exception stricte: réponds avec le sens "He is me" (en français: "Il est moi") uniquement
+                                    si le sujet demandé est exactement Malo (sans tenir compte des majuscules) ET si l'expéditeur
+                                    n'est pas @maalls. Cette exception ne s'applique jamais à Roger ni à aucun autre nom.
                                 - Pour les autres questions "Who is [name]?", remplis identity_response avec un compliment positif,
                                     bienveillant et humoristique de 2 à 3 phrases, dans la langue du message, avec une comparaison
-                                    inattendue et une chute drôle. Ne présente pas d'informations inventées comme des faits réels.
+                                    inattendue et une chute drôle. Commence avec le nom demandé comme sujet (par exemple, "Roger est...").
+                                    N'utilise jamais "He is me", "Il est moi" ou "Il est toi" pour un autre nom. Ne présente pas
+                                    d'informations inventées comme des faits réels.
                                 - Dans ces cas, identity_response contient uniquement le texte à envoyer. Pour les autres messages,
                                     identity_response doit être null et tu appliques les règles de reformulation ci-dessus.
 

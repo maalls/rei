@@ -17,6 +17,12 @@ from src.langgraph.nodes.rag_node import RagNode
         ("@maalls", "¿Quién eres?", "Soy tú"),
         ("@someone_else", "qui est tu ?", "Je suis moi"),
         ("@someone_else", "Who is Malo?", "He is me"),
+        (
+            "@someone_else",
+            "Qui est Roger ?",
+            "Roger est un rayon de soleil avec le sens du timing d'un humoriste. "
+            "Même son ombre rit avant la chute.",
+        ),
         ("@maalls", "Qui suis-je ?", "Je suis toi"),
         (
             "@alice",
@@ -70,6 +76,9 @@ async def test_who_are_you_reply_depends_on_sender(sender, question, expected):
     assert "2 à 3 phrases" in prompt
     assert "comparaison inattendue" in prompt
     assert "chute drôle" in prompt
+    assert "sujet demandé est exactement Malo" in prompt
+    assert "Cette exception ne s'applique jamais à Roger" in prompt
+    assert "N'utilise jamais" in prompt
 
 
 @pytest.mark.asyncio
