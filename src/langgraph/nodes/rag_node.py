@@ -38,7 +38,11 @@ class RagNode:
                 identity_response = "je suis toi"
             elif identity_kind == "who_is_person" and identity_name and identity_name.casefold() == "malo" and sender != "maalls":
                 identity_response = "il est moi"
-            elif identity_kind in {"who_am_i", "who_are_you"}:
+            elif identity_kind == "who_are_you":
+                identity_response = "je suis moi"
+                if identity_compliment:
+                    identity_response += f", {identity_compliment}"
+            elif identity_kind == "who_am_i":
                 identity_response = f"tu es {identity_compliment}"
             elif identity_kind == "who_is_person" and identity_name:
                 identity_response = f"{identity_name} est {identity_compliment}"
@@ -123,13 +127,17 @@ class RagNode:
                 - Pour "qui est [nom] ?" / "who is [name]?", mets identity_kind="who_is_person" et identity_name au nom demandé exactement.
                 - Pour les autres messages, mets identity_kind="not_identity" et identity_name=null.
                 - Ne rédige PAS la réponse complète: le code applique les réponses exactes selon le type et l'expéditeur:
-                  @maalls + who_am_i ou who_are_you => "je suis toi"; autre expéditeur + ces intentions => "tu es <compliment>";
+                  @maalls + who_am_i ou who_are_you => "je suis toi"; autre expéditeur + who_are_you => "je suis moi";
+                  autre expéditeur + who_am_i => "tu es <compliment>";
                   who_is_person dont le nom est exactement Malo, demandé par quelqu'un d'autre que @maalls => "il est moi";
                   tout autre who_is_person => "<nom> est <compliment>".
                 - identity_compliment contient UNIQUEMENT le compliment, sans nom, pronom, sujet ni préfixe.
                   Pour les réponses qui en ont besoin, fais un compliment positif et humoristique de 2 à 3 phrases,
                   dans la langue du message, avec une comparaison inattendue et une chute drôle. Reste bienveillant
                   et n'invente pas de faits réels. Pour une réponse fixe, identity_compliment peut être null.
+                                - Pour who_are_you demandé par un expéditeur autre que @maalls, identity_compliment est une très courte
+                                    description humoristique de toi-même, dans la langue du message (une seule proposition après "je suis moi").
+                                    Ne réponds pas par un compliment sur l'utilisateur.
 
                                 Dernier message utilisateur:
                                 {state["messages"][-1].content}

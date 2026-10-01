@@ -13,9 +13,23 @@ from src.langgraph.nodes.rag_node import RagNode
     ("sender", "question", "identity_kind", "name", "compliment", "expected"),
     [
         ("@maalls", "who are you?", "who_are_you", None, None, "je suis toi"),
-        ("@someone_else", "who are you?", "who_are_you", None, "un champion du café", "tu es un champion du café"),
+        (
+            "@someone_else",
+            "who are you?",
+            "who_are_you",
+            None,
+            "un assistant si modeste que même son miroir lui demande des conseils",
+            "je suis moi, un assistant si modeste que même son miroir lui demande des conseils",
+        ),
         ("@maalls", "¿Quién eres?", "who_are_you", None, None, "je suis toi"),
-        ("@someone_else", "qui est tu ?", "who_are_you", None, "une légende du quartier", "tu es une légende du quartier"),
+        (
+            "@someone_else",
+            "qui est tu ?",
+            "who_are_you",
+            None,
+            "un concentré de bonne humeur avec un bouton pause introuvable",
+            "je suis moi, un concentré de bonne humeur avec un bouton pause introuvable",
+        ),
         ("@someone_else", "Who is Malo?", "who_is_person", "Malo", None, "il est moi"),
         (
             "@someone_else",
